@@ -1,0 +1,94 @@
+{
+    "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py": {
+        "18": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 0
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 3
+            }
+        ],
+        "19": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 1
+            }
+        ],
+        "25": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 2
+            }
+        ],
+        "31": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 4
+            }
+        ],
+        "37": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 7
+            }
+        ],
+        "16": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 1
+            }
+        ],
+        "17": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 1
+            }
+        ]
+    },
+    "/home/pmazumder/gitspace/dace/dace/transformation/dataflow/const_assignment_fusion.py": {
+        "333": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 5
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 6
+            }
+        ],
+        "512": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 8
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 9
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 10
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 11
+            }
+        ]
+    }
+}

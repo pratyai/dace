@@ -4,7 +4,7 @@ from copy import deepcopy
 import numpy as np
 
 import dace
-from dace import SDFG, DeviceType
+from dace import DeviceType
 from dace.transformation.auto import auto_optimize
 from dace.transformation.dataflow.const_assignment_fusion import ConstAssignmentStateFusion
 
@@ -108,7 +108,9 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
 
     def original_op():
         g = assign_bounary_sdfg()  # Construct SDFG with the maps on separate states.
-        auto_optimize.auto_optimize(g, device)
+        if device == DeviceType.GPU:
+            g.apply_gpu_transformations(validate=True, validate_all=True, permissive=True, sequential_innermaps=True,
+                                        register_transients=False, simplify=False)
         g.simplify()
         # g = auto_optimize.auto_optimize(g, device)
         g.validate()
@@ -119,9 +121,10 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
         g = assign_bounary_sdfg()  # Construct SDFG with the maps on separate states.
         g.apply_transformations_repeated(ConstAssignmentStateFusion,
                                          options={'use_grid_strided_loops': use_grid_strided_loops})
-        auto_optimize.auto_optimize(g, device)
+        if device == DeviceType.GPU:
+            g.apply_gpu_transformations(validate=True, validate_all=True, permissive=True, sequential_innermaps=True,
+                                        register_transients=False, simplify=False)
         g.simplify()
-        # g = auto_optimize.auto_optimize(g, device)
         g.validate()
         g.compile()
         return g
@@ -165,9 +168,10 @@ def benchmark_3d_boundary_init(device: DeviceType = DeviceType.CPU):
 
     def original_op():
         g = assign_bounary_3d.to_sdfg(simplify=True, validate=True, use_cache=False)
-        auto_optimize.auto_optimize(g, device)
+        if device == DeviceType.GPU:
+            g.apply_gpu_transformations(validate=True, validate_all=True, permissive=True, sequential_innermaps=True,
+                                        register_transients=False, simplify=False)
         g.simplify()
-        # g = auto_optimize.auto_optimize(g, device)
         g.validate()
         g.compile()
         return g
@@ -176,9 +180,10 @@ def benchmark_3d_boundary_init(device: DeviceType = DeviceType.CPU):
         g = assign_bounary_3d.to_sdfg(simplify=True, validate=True, use_cache=False)
         g.apply_transformations_repeated(ConstAssignmentStateFusion,
                                          options={'use_grid_strided_loops': use_grid_strided_loops})
-        auto_optimize.auto_optimize(g, device)
+        if device == DeviceType.GPU:
+            g.apply_gpu_transformations(validate=True, validate_all=True, permissive=True, sequential_innermaps=True,
+                                        register_transients=False, simplify=False)
         g.simplify()
-        # g = auto_optimize.auto_optimize(g, device)
         g.validate()
         g.compile()
         return g

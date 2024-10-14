@@ -6,92 +6,92 @@ collected 4 items / 2 deselected / 2 selected
 
 tests/transformations/benchmark_const_assignment_fusion_test.py 
 Profiling...
-benchmark_const_assignment_fusion_test_assign_top_row 1.6687044990248978 ms
+benchmark_const_assignment_fusion_test_assign_top_row 1.8527314823586494 ms
 2D boundary init: original op
 Instrumentation report
-SDFG Hash: deedd03b7967cf173b4cb271321a927bc07db31856f54ceb1f3a343cb709df5b
+SDFG Hash: 75870eb1172f328e22b1918bf0ef0eaea2d8d72e5ad88f27dc302548348e6a40
 ---------------------------------------------------------------------------
 Element        Runtime (ms)   
                Min            Mean           Median         Max            
 ---------------------------------------------------------------------------
 SDFG (0)                                                                   
 |:                                                                         
-|              1.660          1.672          1.669          1.706          
+|              1.828          1.854          1.853          1.912          
 ---------------------------------------------------------------------------
 
 
 Profiling...
-benchmark_const_assignment_fusion_test_assign_top_row 1.7102595011238009 ms
+benchmark_const_assignment_fusion_test_assign_top_row 1.8585919751785696 ms
 2D boundary init: fused op w/o. grid-strided loop
 Instrumentation report
-SDFG Hash: 2f0f2fdf3e358e767ac1a9905067a1b1e42f2e8df6c0752f91ed6564dd2f83b1
+SDFG Hash: c84cc8ef2bd5a7660e27e5418057ac03ef24dc6be628ff60c1b57c5a25b1885c
 ---------------------------------------------------------------------------
 Element        Runtime (ms)   
                Min            Mean           Median         Max            
 ---------------------------------------------------------------------------
 SDFG (0)                                                                   
 |:                                                                         
-|              1.696          1.712          1.710          2.045          
+|              1.840          1.861          1.859          2.041          
 ---------------------------------------------------------------------------
 
 
 Profiling...
-benchmark_const_assignment_fusion_test_assign_top_row 1.6706089954823256 ms
+benchmark_const_assignment_fusion_test_assign_top_row 1.8556269933469594 ms
 2D boundary init: fused op with grid-strided loop
 Instrumentation report
-SDFG Hash: 61fa63062f25b965f156c47bbf1def31b6768032145ee2d2cdafa4c63dc480b5
+SDFG Hash: c1df81826a78edd515d588730b7e307937287cb11b79ff095bee40906cbc61b7
 ---------------------------------------------------------------------------
 Element        Runtime (ms)   
                Min            Mean           Median         Max            
 ---------------------------------------------------------------------------
 SDFG (0)                                                                   
 |:                                                                         
-|              1.654          1.672          1.671          2.091          
+|              1.833          1.858          1.856          1.892          
 ---------------------------------------------------------------------------
 
 [32m.[0m
 Profiling...
-benchmark_const_assignment_fusion_test_assign_bounary_3d 48.091168981045485 ms
+benchmark_const_assignment_fusion_test_assign_bounary_3d 53.868898015934974 ms
 3D boundary init: original op
 Instrumentation report
-SDFG Hash: 00cc99207ab813359ca287b6ffc0f526e61ef58d103565ae2fbff317eb6ff6a0
+SDFG Hash: 635fe35c5dd65bba081e5f2d955aaf90ae695e05ded70070e3ad20706feda1a1
 ---------------------------------------------------------------------------
 Element        Runtime (ms)   
                Min            Mean           Median         Max            
 ---------------------------------------------------------------------------
 SDFG (0)                                                                   
 |:                                                                         
-|              47.897         48.108         48.091         52.113         
+|              53.717         53.896         53.869         55.175         
 ---------------------------------------------------------------------------
 
 
 Profiling...
-benchmark_const_assignment_fusion_test_assign_bounary_3d 48.694633529521525 ms
+benchmark_const_assignment_fusion_test_assign_bounary_3d 55.07206346374005 ms
 3D boundary init: fused op w/o. grid-strided loop
 Instrumentation report
-SDFG Hash: b63a48b3d50a88f93126fe791fd76260e82a7b6e43bbb1fac21589e536a75ba8
+SDFG Hash: 4bf6d7b82a9ebfdb508d3d0c3b7576da94221ed7430a3fed6f51cfcd929bedf9
 ---------------------------------------------------------------------------
 Element        Runtime (ms)   
                Min            Mean           Median         Max            
 ---------------------------------------------------------------------------
 SDFG (0)                                                                   
 |:                                                                         
-|              48.561         48.717         48.695         49.539         
+|              54.965         55.077         55.072         55.487         
 ---------------------------------------------------------------------------
 
 
 Profiling...
-benchmark_const_assignment_fusion_test_assign_bounary_3d 49.010923015885055 ms
+benchmark_const_assignment_fusion_test_assign_bounary_3d 55.40322500746697 ms
 3D boundary init: fused op with grid-strided loop
 Instrumentation report
-SDFG Hash: d042faecc18627c7716692bf69b0b13dfbbbbb5a2b928830656d1f869bfa77b9
+SDFG Hash: 60bfe62035e5a945210116c4671f12406963f578ed61e0b60106407f94f4648f
 ---------------------------------------------------------------------------
 Element        Runtime (ms)   
                Min            Mean           Median         Max            
 ---------------------------------------------------------------------------
 SDFG (0)                                                                   
 |:                                                                         
-|              48.888         49.019         49.011         49.294         
+|              55.198         55.404         55.403         55.610         
 ---------------------------------------------------------------------------
 
 [32m.[0m
@@ -154,4 +154,4 @@ tests/transformations/benchmark_const_assignment_fusion_test.py::test_benchmark_
     warnings.warn(
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-[33m=========== [32m2 passed[0m, [33m[1m2 deselected[0m, [33m[1m15 warnings[0m[33m in 171.58s (0:02:51)[0m[33m ===========[0m
+[33m=========== [32m2 passed[0m, [33m[1m2 deselected[0m, [33m[1m15 warnings[0m[33m in 180.02s (0:03:00)[0m[33m ===========[0m

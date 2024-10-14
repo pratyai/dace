@@ -27,7 +27,6 @@
             "M",
             "N"
           ],
-          "storage": "CPU_Heap",
           "debuginfo": null
         }
       }
@@ -63,8 +62,8 @@
       "end_column": 0,
       "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
     },
-    "guid": "fc5920b9-b35b-4f7d-9e89-6cadb06a7166",
-    "hash": "bef1daf3ee9ab56ac036661d502b8a201e6a13b8a206828bb19f26680ab71190"
+    "guid": "c9024cb2-66c0-4540-b5c6-deb2f056630c",
+    "hash": "209f54cbff03e3d56b64bd311710952eca412c2324946fbd275009a2337425a4"
   },
   "nodes": [
     {
@@ -118,7 +117,7 @@
               "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
             },
             "data": "A",
-            "guid": "57111fb2-83ec-4442-8ce9-c5619024c6d9"
+            "guid": "3d6e26c8-bdcf-4f49-a11d-5bcd34b2906e"
           },
           "id": 0,
           "scope_entry": null,
@@ -142,9 +141,9 @@
             },
             "label": "assign_62_8",
             "out_connectors": {
-              "__out": "float32"
+              "__out": null
             },
-            "guid": "0dafdb94-093a-4389-9e26-dc19d20c6de7"
+            "guid": "7d02f82a-138a-4692-8b95-53f7bdd41339"
           },
           "id": 1,
           "scope_entry": "5",
@@ -168,9 +167,9 @@
             },
             "label": "assign_68_8",
             "out_connectors": {
-              "__out": "float32"
+              "__out": null
             },
-            "guid": "8aed64ea-86ff-4549-9ebf-d0e507fd1ace"
+            "guid": "b175406f-b2ae-4c3e-be4f-ea3e251a4356"
           },
           "id": 2,
           "scope_entry": "5",
@@ -189,7 +188,7 @@
               "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
             },
             "data": "A",
-            "guid": "11bcc455-e41f-443b-9d8c-73c6f4eb171b"
+            "guid": "f1bdcb0e-0b57-45ac-b644-35b085ad4fe6"
           },
           "id": 3,
           "scope_entry": null,
@@ -213,9 +212,9 @@
             },
             "label": "assign_74_8",
             "out_connectors": {
-              "__out": "float32"
+              "__out": null
             },
-            "guid": "c9b03b74-70ce-41e2-b259-607a10500ffb"
+            "guid": "a0a7fb29-f64e-4ba7-9e76-9f858dabf720"
           },
           "id": 4,
           "scope_entry": "8",
@@ -256,7 +255,7 @@
               "end_column": 0,
               "filename": "/home/pmazumder/gitspace/dace/dace/transformation/dataflow/const_assignment_fusion.py"
             },
-            "guid": "0221f0ba-c934-4d6d-af0a-e0c1a21bb81d"
+            "guid": "6fd76a70-d194-4b22-b36b-bb797b6fbd58"
           },
           "id": 5,
           "scope_entry": "11",
@@ -267,15 +266,12 @@
           "label": "gsl[gsl_t1=t1:M:M, gsl_t2=t2:N:N]",
           "attributes": {
             "in_connectors": {
-              "IN_A": "float32"
+              "IN_A": null
             },
             "out_connectors": {
-              "OUT_A": {
-                "type": "pointer",
-                "dtype": "float32"
-              }
+              "OUT_A": null
             },
-            "guid": "9ece4412-e9e9-460b-9d40-213df70283c2"
+            "guid": "0a089ade-ff23-474f-9aba-a9bf92aef9b9"
           },
           "id": 6,
           "scope_entry": "5",
@@ -299,9 +295,9 @@
             },
             "label": "assign_80_8",
             "out_connectors": {
-              "__out": "float32"
+              "__out": null
             },
-            "guid": "7d6954bc-f94d-4135-9330-6aeee7b60163"
+            "guid": "621ab64e-741c-4176-8560-f4c4ef62653d"
           },
           "id": 7,
           "scope_entry": "8",
@@ -342,7 +338,7 @@
               "end_column": 0,
               "filename": "/home/pmazumder/gitspace/dace/dace/transformation/dataflow/const_assignment_fusion.py"
             },
-            "guid": "5f2f92b2-d1d4-4b84-af14-6cd1296e9d67"
+            "guid": "e3a55d93-8511-44e0-a2e2-661ee5ace80a"
           },
           "id": 8,
           "scope_entry": "11",
@@ -353,15 +349,12 @@
           "label": "map_fusion_wrapper[gsl_t1=t1:K:K, gsl_t2=t2:N:N]",
           "attributes": {
             "in_connectors": {
-              "IN_A": "float32"
+              "IN_A": null
             },
             "out_connectors": {
-              "OUT_A": {
-                "type": "pointer",
-                "dtype": "float32"
-              }
+              "OUT_A": null
             },
-            "guid": "355bb87a-865a-44ed-8aaf-4c40b2807044"
+            "guid": "5cda5b26-87be-45fb-a9db-7b436facdf51"
           },
           "id": 9,
           "scope_entry": "8",
@@ -385,9 +378,9 @@
             },
             "label": "assign_86_8",
             "out_connectors": {
-              "__out": "float32"
+              "__out": null
             },
-            "guid": "0a9ac798-2fea-4d1c-b2bf-fd4e8bd8f493"
+            "guid": "3eec5d41-42fa-4803-b456-55c3c04b7eaa"
           },
           "id": 10,
           "scope_entry": "16",
@@ -428,7 +421,7 @@
               "end_column": 0,
               "filename": "/home/pmazumder/gitspace/dace/dace/transformation/dataflow/const_assignment_fusion.py"
             },
-            "guid": "1786ca9a-f6a2-43b5-b975-a6f6c70919db"
+            "guid": "350424fb-125d-4924-a354-2b0097ccd4ea"
           },
           "id": 11,
           "scope_entry": "14",
@@ -439,18 +432,12 @@
           "label": "gsl[gsl_t1=t1:Max(K - 1, M - 1) + 1:Max(K - 1, M - 1) + 1, gsl_t2=t2:N:N]",
           "attributes": {
             "in_connectors": {
-              "IN_A": {
-                "type": "pointer",
-                "dtype": "float32"
-              }
+              "IN_A": null
             },
             "out_connectors": {
-              "OUT_A": {
-                "type": "pointer",
-                "dtype": "float32"
-              }
+              "OUT_A": null
             },
-            "guid": "3d163577-0f01-4d56-a1e6-e3108e4a282d"
+            "guid": "1fe44766-e422-4072-86a5-7aa494d3d3f0"
           },
           "id": 12,
           "scope_entry": "11",
@@ -474,9 +461,9 @@
             },
             "label": "assign_92_8",
             "out_connectors": {
-              "__out": "float32"
+              "__out": null
             },
-            "guid": "4a0943ed-9cdc-40de-bf73-7454d4196a85"
+            "guid": "64dd6a69-4983-41d3-96a8-5386eb97d694"
           },
           "id": 13,
           "scope_entry": "16",
@@ -508,7 +495,6 @@
                 }
               ]
             },
-            "schedule": "CPU_Multicore",
             "debuginfo": {
               "type": "DebugInfo",
               "start_line": 512,
@@ -517,7 +503,7 @@
               "end_column": 0,
               "filename": "/home/pmazumder/gitspace/dace/dace/transformation/dataflow/const_assignment_fusion.py"
             },
-            "guid": "fe0081df-0a35-48cd-b76e-decb9672c31d"
+            "guid": "22e9f3f3-2047-4b10-87a2-8ce91661d8de"
           },
           "id": 14,
           "scope_entry": null,
@@ -528,18 +514,12 @@
           "label": "map_fusion_wrapper[t1=0:Max(K - 1, M - 1) + 1, t2=0:Max(M - 1, N - 1) + 1]",
           "attributes": {
             "in_connectors": {
-              "IN_A": {
-                "type": "pointer",
-                "dtype": "float32"
-              }
+              "IN_A": null
             },
             "out_connectors": {
-              "OUT_A": {
-                "type": "pointer",
-                "dtype": "float32"
-              }
+              "OUT_A": null
             },
-            "guid": "e331e839-d73f-4eed-9bbd-91c48c6b828b"
+            "guid": "01e26fed-7bab-47da-bad4-959d49a85d54"
           },
           "id": 15,
           "scope_entry": "14",
@@ -580,7 +560,7 @@
               "end_column": 0,
               "filename": "/home/pmazumder/gitspace/dace/dace/transformation/dataflow/const_assignment_fusion.py"
             },
-            "guid": "77af9066-e773-4637-9cf6-c2df4f5f47a2"
+            "guid": "892e8450-4496-40f9-9da7-4db630868636"
           },
           "id": 16,
           "scope_entry": "14",
@@ -591,15 +571,12 @@
           "label": "map_fusion_wrapper[gsl_t1=t1:K:K, gsl_t2=t2:M:M]",
           "attributes": {
             "in_connectors": {
-              "IN_A": "float32"
+              "IN_A": null
             },
             "out_connectors": {
-              "OUT_A": {
-                "type": "pointer",
-                "dtype": "float32"
-              }
+              "OUT_A": null
             },
-            "guid": "9d7d7acf-880e-44c4-b2d0-da59968d29cf"
+            "guid": "10560696-ebf4-40f0-b1d4-2b0f9baf7a5b"
           },
           "id": 17,
           "scope_entry": "16",
@@ -615,7 +592,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "a360b849-8fda-48fe-9984-aee8ff222307",
+                "guid": "40db1f5f-a4b7-4262-b096-f8d71941ab57",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -636,7 +613,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "74f1c3ce-9269-4126-8bdf-fd1a3cb101ba",
+                "guid": "58cae24c-d454-470d-94bc-2c041864e257",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -657,7 +634,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "51a9afd4-e277-431e-b405-4132ba11d6ed",
+                "guid": "314d6728-dd4e-4cca-af91-f8f73b0e4399",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -678,7 +655,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "11f6b292-0156-4f49-856e-1917a1cd52e5",
+                "guid": "e20f8173-e0af-4979-baef-d9510fa03462",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -699,7 +676,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "94c9e019-217a-4171-b7c8-02f0e7c456b9",
+                "guid": "a2664ce5-fb94-44b3-ac10-7ad1f8e6a67c",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -720,7 +697,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "dcd417af-db74-4a24-b5a3-cf7de296872c",
+                "guid": "eb4c0756-d68e-4347-8510-7315dec4e90a",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -741,7 +718,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "83a02b08-2793-4a59-9475-dc9a044d23a1",
+                "guid": "4f993065-ae42-4d67-9b7d-3f16db0f6a54",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -762,7 +739,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "7fce91e1-71d5-4635-bc3f-cc65af753b54",
+                "guid": "7c92c392-9bf6-487f-8ce5-d287875ada94",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -783,7 +760,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "b1220769-be95-40e5-acfd-5aafcca269e1",
+                "guid": "234e0d34-ee4b-4d7a-b4ab-5e4fbc548337",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -804,7 +781,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "944f4698-510f-465a-972b-81bf0ac13adf",
+                "guid": "ff654b25-51c4-4cbf-94b5-369f95dea1de",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -825,7 +802,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "30f0bc37-28e6-4a72-ae13-070c495abb1e",
+                "guid": "e40c3156-cd0c-4dbd-8718-0384d446e8d0",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -870,7 +847,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "6b80a4a2-8ac4-47c4-bdc8-c6c4e75c490a",
+                "guid": "0b7178ed-9174-4fd8-b981-58462bac0963",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -937,7 +914,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "ec272334-f210-4509-9840-6daa646aa913",
+                "guid": "f28575ff-e3b1-48c5-851a-8b31c18837c4",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -1004,7 +981,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "7566a127-d790-4052-b9ed-9e13d40b83a9",
+                "guid": "1afcf950-7b2f-4139-99f5-7719ba65b372",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -1071,7 +1048,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "33f4e195-3129-4cb3-8454-e835f7247bc7",
+                "guid": "b8ecb772-2ff6-4226-b217-39b199ae86d1",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -1138,7 +1115,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "ffd24961-3631-40d3-be81-4c6365c1c118",
+                "guid": "62b9c967-98aa-4e2d-9fd3-cf88aaf71034",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -1205,7 +1182,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "934fb951-1f0e-47e8-837a-e50cbe6ae262",
+                "guid": "12c23a41-5703-46a1-a472-3f3f9344cc6f",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -1272,7 +1249,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "8ff47470-82d3-4bf2-876d-aa36ef1a3505",
+                "guid": "96957763-f05a-4e45-81c5-1ac34b626616",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -1339,7 +1316,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "2388928e-d80d-4970-83a6-a0de9396cb8b",
+                "guid": "479679c1-2ca2-49b0-9853-a0df108fd385",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -1406,7 +1383,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "51e83cb0-99d9-47b9-9416-e739afc4a037",
+                "guid": "e7183c7a-68ad-40f8-8c0f-9c381a27509a",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -1473,7 +1450,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "30d9f22d-9a7e-4116-80ae-b5d11a4f39e6",
+                "guid": "891855dc-39ad-460e-9171-0299e02fe074",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -1540,7 +1517,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "9f43375d-360c-4b5d-9e45-df19bce0f19c",
+                "guid": "51d8ecd4-667c-4111-a474-59427b399975",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -1579,7 +1556,7 @@
       "attributes": {
         "executions": "1",
         "dynamic_executions": false,
-        "guid": "3ecab34c-f813-4400-bdd2-871c9a39001e"
+        "guid": "a53d4d96-65ea-46bd-a1dd-ff933d28bd36"
       }
     }
   ],

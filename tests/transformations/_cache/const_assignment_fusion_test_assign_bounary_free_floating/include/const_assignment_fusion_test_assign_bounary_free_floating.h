@@ -1,0 +1,5 @@
+#include <dace/dace.h>
+typedef void * const_assignment_fusion_test_assign_bounary_free_floatingHandle_t;
+extern "C" const_assignment_fusion_test_assign_bounary_free_floatingHandle_t __dace_init_const_assignment_fusion_test_assign_bounary_free_floating(int M, int N);
+extern "C" int __dace_exit_const_assignment_fusion_test_assign_bounary_free_floating(const_assignment_fusion_test_assign_bounary_free_floatingHandle_t handle);
+extern "C" void __program_const_assignment_fusion_test_assign_bounary_free_floating(const_assignment_fusion_test_assign_bounary_free_floatingHandle_t handle, float * __restrict__ A, float * __restrict__ B, int M, int N);

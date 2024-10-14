@@ -1,0 +1,114 @@
+{
+    "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py": {
+        "61": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 0
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 3
+            }
+        ],
+        "62": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 1
+            }
+        ],
+        "68": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 2
+            }
+        ],
+        "74": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 4
+            }
+        ],
+        "80": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 7
+            }
+        ],
+        "86": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 10
+            }
+        ],
+        "92": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 13
+            }
+        ]
+    },
+    "/home/pmazumder/gitspace/dace/dace/transformation/dataflow/const_assignment_fusion.py": {
+        "333": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 5
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 6
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 11
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 12
+            }
+        ],
+        "512": [
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 8
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 9
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 14
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 15
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 16
+            },
+            {
+                "cfg_id": 0,
+                "state_id": 0,
+                "node_id": 17
+            }
+        ]
+    }
+}
