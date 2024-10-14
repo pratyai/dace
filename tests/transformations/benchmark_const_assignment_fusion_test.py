@@ -133,6 +133,7 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
     actual_A = deepcopy(A)
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=actual_A, M=m, N=n)
+    print('2D boundary init: original op')
     print(prof.report)
 
     # === Part 2: Fused Op w/o. grid-strided loop === #
@@ -142,6 +143,7 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
     our_A = deepcopy(A)
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=our_A, M=m, N=n)
+    print('2D boundary init: fused op w/o. grid-strided loop')
     print(prof.report)
     assert np.all(np.equal(our_A, actual_A))
 
@@ -152,6 +154,7 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
     our_A = deepcopy(A)
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=our_A, M=m, N=n)
+    print('2D boundary init: fused op with grid-strided loop')
     print(prof.report)
     assert np.all(np.equal(our_A, actual_A))
 
@@ -187,6 +190,7 @@ def benchmark_3d_boundary_init(device: DeviceType = DeviceType.CPU):
     actual_A = deepcopy(A)
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=actual_A, K=k, M=m, N=n)
+    print('3D boundary init: original op')
     print(prof.report)
 
     # === Part 2: Fused Op w/o. grid-strided loop === #
@@ -196,6 +200,7 @@ def benchmark_3d_boundary_init(device: DeviceType = DeviceType.CPU):
     our_A = deepcopy(A)
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=our_A, K=k, M=m, N=n)
+    print('3D boundary init: fused op w/o. grid-strided loop')
     print(prof.report)
     assert np.all(np.equal(our_A, actual_A))
 
@@ -206,6 +211,7 @@ def benchmark_3d_boundary_init(device: DeviceType = DeviceType.CPU):
     our_A = deepcopy(A)
     with dace.profile(repetitions=100, warmup=10) as prof:
         g(A=our_A, K=k, M=m, N=n)
+    print('3D boundary init: fused op with grid-strided loop')
     print(prof.report)
     assert np.all(np.equal(our_A, actual_A))
 
