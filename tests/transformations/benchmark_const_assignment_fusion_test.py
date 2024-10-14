@@ -108,7 +108,7 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
 
     def original_op():
         g = assign_bounary_sdfg()  # Construct SDFG with the maps on separate states.
-        auto_optimize.set_fast_implementations(g, device)
+        auto_optimize.auto_optimize(g, device)
         g.simplify()
         # g = auto_optimize.auto_optimize(g, device)
         g.validate()
@@ -119,7 +119,7 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
         g = assign_bounary_sdfg()  # Construct SDFG with the maps on separate states.
         g.apply_transformations_repeated(ConstAssignmentStateFusion,
                                          options={'use_grid_strided_loops': use_grid_strided_loops})
-        auto_optimize.set_fast_implementations(g, device)
+        auto_optimize.auto_optimize(g, device)
         g.simplify()
         # g = auto_optimize.auto_optimize(g, device)
         g.validate()
@@ -165,7 +165,7 @@ def benchmark_3d_boundary_init(device: DeviceType = DeviceType.CPU):
 
     def original_op():
         g = assign_bounary_3d.to_sdfg(simplify=True, validate=True, use_cache=False)
-        auto_optimize.set_fast_implementations(g, device)
+        auto_optimize.auto_optimize(g, device)
         g.simplify()
         # g = auto_optimize.auto_optimize(g, device)
         g.validate()
@@ -176,7 +176,7 @@ def benchmark_3d_boundary_init(device: DeviceType = DeviceType.CPU):
         g = assign_bounary_3d.to_sdfg(simplify=True, validate=True, use_cache=False)
         g.apply_transformations_repeated(ConstAssignmentStateFusion,
                                          options={'use_grid_strided_loops': use_grid_strided_loops})
-        auto_optimize.set_fast_implementations(g, device)
+        auto_optimize.auto_optimize(g, device)
         g.simplify()
         # g = auto_optimize.auto_optimize(g, device)
         g.validate()
