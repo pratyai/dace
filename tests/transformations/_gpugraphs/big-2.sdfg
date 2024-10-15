@@ -24,6 +24,7 @@
             "M",
             "N"
           ],
+          "storage": "CPU_Heap",
           "debuginfo": null
         }
       },
@@ -47,6 +48,31 @@
           ],
           "transient": true,
           "storage": "GPU_Global",
+          "lifetime": "Persistent",
+          "debuginfo": null
+        }
+      },
+      "gpu_A_0": {
+        "type": "Array",
+        "attributes": {
+          "strides": [
+            "N",
+            "1"
+          ],
+          "total_size": "M*N",
+          "offset": [
+            "0",
+            "0"
+          ],
+          "optional": false,
+          "dtype": "float32",
+          "shape": [
+            "M",
+            "N"
+          ],
+          "transient": true,
+          "storage": "GPU_Global",
+          "lifetime": "Persistent",
           "debuginfo": null
         }
       }
@@ -75,19 +101,19 @@
     },
     "debuginfo": {
       "type": "DebugInfo",
-      "start_line": 16,
-      "end_line": 19,
+      "start_line": 45,
+      "end_line": 48,
       "start_column": 0,
       "end_column": 0,
       "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
     },
-    "guid": "f897657c-9e71-4c2b-a963-058b2d1d41f9",
-    "hash": "a3589a4bf397e222d25a18d217f2c97aca7f3d2d71e5739e44dfc0e7e31b83b2"
+    "guid": "e165781c-c881-4d4d-9884-36af4444d880",
+    "hash": "e2ff0d2f799512dc13796b11b0295fb1ef21cc2299c4c01656e838295dc7a481"
   },
   "nodes": [
     {
       "type": "SDFGState",
-      "label": "benchmark_const_assignment_fusion_test_assign_top_row_copyin",
+      "label": "benchmark_const_assignment_fusion_test_assign_top_row_copyin_0",
       "id": 0,
       "collapsed": false,
       "scope_dict": {
@@ -95,23 +121,25 @@
           0,
           1,
           2,
+          3,
+          10,
+          14,
+          15
+        ],
+        "7": [
+          4,
+          5,
+          8
+        ],
+        "10": [
+          7,
+          11,
+          12
+        ],
+        "12": [
+          6,
           9,
           13
-        ],
-        "6": [
-          3,
-          4,
-          7
-        ],
-        "9": [
-          6,
-          10,
-          11
-        ],
-        "11": [
-          5,
-          8,
-          12
         ]
       },
       "nodes": [
@@ -121,7 +149,7 @@
           "attributes": {
             "debuginfo": null,
             "data": "A",
-            "guid": "cb17246a-a8ec-4d50-87b9-3e65b5bb1138"
+            "guid": "8a9a1c49-541e-4c96-85d5-35f42f514dc5"
           },
           "id": 0,
           "scope_entry": null,
@@ -129,11 +157,11 @@
         },
         {
           "type": "AccessNode",
-          "label": "gpu_A",
+          "label": "gpu_A_0",
           "attributes": {
             "debuginfo": null,
-            "data": "gpu_A",
-            "guid": "f36eaebb-c563-4b75-bf7c-7206784ccbba"
+            "data": "gpu_A_0",
+            "guid": "d075279d-befc-4476-9a5c-b19146a75336"
           },
           "id": 1,
           "scope_entry": null,
@@ -143,24 +171,36 @@
           "type": "AccessNode",
           "label": "gpu_A",
           "attributes": {
-            "debuginfo": {
-              "type": "DebugInfo",
-              "start_line": 18,
-              "end_line": 18,
-              "start_column": 4,
-              "end_column": 4,
-              "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
-            },
+            "debuginfo": null,
             "data": "gpu_A",
-            "guid": "a50c952c-7497-4c88-93f9-eb972ddc5d1a"
+            "guid": "88ed956a-13e2-4261-9bb2-5557f6edf991"
           },
           "id": 2,
           "scope_entry": null,
           "scope_exit": null
         },
         {
+          "type": "AccessNode",
+          "label": "gpu_A",
+          "attributes": {
+            "debuginfo": {
+              "type": "DebugInfo",
+              "start_line": 47,
+              "end_line": 47,
+              "start_column": 4,
+              "end_column": 4,
+              "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
+            },
+            "data": "gpu_A",
+            "guid": "d979b128-662a-4da3-9c86-620245dbd8a7"
+          },
+          "id": 3,
+          "scope_entry": null,
+          "scope_exit": null
+        },
+        {
           "type": "Tasklet",
-          "label": "assign_19_8",
+          "label": "assign_48_8",
           "attributes": {
             "code": {
               "string_data": "__out = 1",
@@ -168,25 +208,25 @@
             },
             "debuginfo": {
               "type": "DebugInfo",
-              "start_line": 19,
-              "end_line": 19,
+              "start_line": 48,
+              "end_line": 48,
               "start_column": 13,
               "end_column": 13,
               "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
             },
-            "label": "assign_19_8",
+            "label": "assign_48_8",
             "out_connectors": {
-              "__out": null
+              "__out": "float32"
             },
-            "guid": "d586f16b-8b69-4bec-9d12-175e3934408d"
+            "guid": "1d901017-6ab0-41c5-8e4c-f2ecac5d6fc1"
           },
-          "id": 3,
-          "scope_entry": "6",
-          "scope_exit": "7"
+          "id": 4,
+          "scope_entry": "7",
+          "scope_exit": "8"
         },
         {
           "type": "Tasklet",
-          "label": "assign_25_8",
+          "label": "assign_54_8",
           "attributes": {
             "code": {
               "string_data": "__out = 1",
@@ -194,25 +234,25 @@
             },
             "debuginfo": {
               "type": "DebugInfo",
-              "start_line": 25,
-              "end_line": 25,
+              "start_line": 54,
+              "end_line": 54,
               "start_column": 17,
               "end_column": 17,
               "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
             },
-            "label": "assign_25_8",
+            "label": "assign_54_8",
             "out_connectors": {
-              "__out": null
+              "__out": "float32"
             },
-            "guid": "e154e9ee-74ca-4877-a795-974823d8d413"
+            "guid": "37088952-0f13-4946-8854-e0e65a8f8ece"
           },
-          "id": 4,
-          "scope_entry": "6",
-          "scope_exit": "7"
+          "id": 5,
+          "scope_entry": "7",
+          "scope_exit": "8"
         },
         {
           "type": "Tasklet",
-          "label": "assign_31_8",
+          "label": "assign_60_8",
           "attributes": {
             "code": {
               "string_data": "__out = 1",
@@ -220,21 +260,21 @@
             },
             "debuginfo": {
               "type": "DebugInfo",
-              "start_line": 31,
-              "end_line": 31,
+              "start_line": 60,
+              "end_line": 60,
               "start_column": 13,
               "end_column": 13,
               "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
             },
-            "label": "assign_31_8",
+            "label": "assign_60_8",
             "out_connectors": {
-              "__out": null
+              "__out": "float32"
             },
-            "guid": "36a41119-f6ba-4ab6-b95f-bb6930080eea"
+            "guid": "c2cb69f7-7908-43fe-a8e3-e9ce241b18f2"
           },
-          "id": 5,
-          "scope_entry": "11",
-          "scope_exit": "12"
+          "id": 6,
+          "scope_entry": "12",
+          "scope_exit": "13"
         },
         {
           "type": "MapEntry",
@@ -264,31 +304,34 @@
               "end_column": 0,
               "filename": "/home/pmazumder/gitspace/dace/dace/transformation/dataflow/const_assignment_fusion.py"
             },
-            "guid": "cd04e1a5-e63c-425f-8b47-a8c6a2990b7e"
+            "guid": "a71de634-993a-489f-b802-b5b16e32cc1b"
           },
-          "id": 6,
-          "scope_entry": "9",
-          "scope_exit": "7"
+          "id": 7,
+          "scope_entry": "10",
+          "scope_exit": "8"
         },
         {
           "type": "MapExit",
           "label": "gsl[gsl_t=t:N:N]",
           "attributes": {
             "in_connectors": {
-              "IN_A": null
+              "IN_A": "float32"
             },
             "out_connectors": {
-              "OUT_A": null
+              "OUT_A": {
+                "type": "pointer",
+                "dtype": "float32"
+              }
             },
-            "guid": "e21ea5c4-66e5-48c3-97d6-fae73edcf64b"
+            "guid": "ef68868b-af3f-4051-aa57-31dd36f5c530"
           },
-          "id": 7,
-          "scope_entry": "6",
-          "scope_exit": "7"
+          "id": 8,
+          "scope_entry": "7",
+          "scope_exit": "8"
         },
         {
           "type": "Tasklet",
-          "label": "assign_37_8",
+          "label": "assign_66_8",
           "attributes": {
             "code": {
               "string_data": "__out = 1",
@@ -296,21 +339,21 @@
             },
             "debuginfo": {
               "type": "DebugInfo",
-              "start_line": 37,
-              "end_line": 37,
+              "start_line": 66,
+              "end_line": 66,
               "start_column": 17,
               "end_column": 17,
               "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
             },
-            "label": "assign_37_8",
+            "label": "assign_66_8",
             "out_connectors": {
-              "__out": null
+              "__out": "float32"
             },
-            "guid": "83f8c9fb-3630-4ffe-bf56-d185db0fc19d"
+            "guid": "f4964a4f-64cf-47aa-a458-c347070b8479"
           },
-          "id": 8,
-          "scope_entry": "11",
-          "scope_exit": "12"
+          "id": 9,
+          "scope_entry": "12",
+          "scope_exit": "13"
         },
         {
           "type": "MapEntry",
@@ -340,27 +383,34 @@
               "end_column": 0,
               "filename": "/home/pmazumder/gitspace/dace/dace/transformation/dataflow/const_assignment_fusion.py"
             },
-            "guid": "0bb1a236-6633-4611-a6c6-ef54e2a4f574"
+            "instrument": "GPU_Events",
+            "guid": "f6b0ae10-0400-4240-abd8-b9fb6332852d"
           },
-          "id": 9,
+          "id": 10,
           "scope_entry": null,
-          "scope_exit": "10"
+          "scope_exit": "11"
         },
         {
           "type": "MapExit",
           "label": "map_fusion_wrapper[t=0:Max(M - 1, N - 1) + 1]",
           "attributes": {
             "in_connectors": {
-              "IN_A": null
+              "IN_A": {
+                "type": "pointer",
+                "dtype": "float32"
+              }
             },
             "out_connectors": {
-              "OUT_A": null
+              "OUT_A": {
+                "type": "pointer",
+                "dtype": "float32"
+              }
             },
-            "guid": "6fb6586a-7056-4a82-8463-a49d27500f7e"
+            "guid": "acb2816f-d50b-4df7-a2ee-8b86006815f3"
           },
-          "id": 10,
-          "scope_entry": "9",
-          "scope_exit": "10"
+          "id": 11,
+          "scope_entry": "10",
+          "scope_exit": "11"
         },
         {
           "type": "MapEntry",
@@ -390,27 +440,42 @@
               "end_column": 0,
               "filename": "/home/pmazumder/gitspace/dace/dace/transformation/dataflow/const_assignment_fusion.py"
             },
-            "guid": "a69b41e5-8746-487c-968e-715d783af628"
+            "guid": "01a71b85-f615-4b32-8bc2-13400c613124"
           },
-          "id": 11,
-          "scope_entry": "9",
-          "scope_exit": "12"
+          "id": 12,
+          "scope_entry": "10",
+          "scope_exit": "13"
         },
         {
           "type": "MapExit",
           "label": "map_fusion_wrapper[gsl_t=t:M:M]",
           "attributes": {
             "in_connectors": {
-              "IN_A": null
+              "IN_A": "float32"
             },
             "out_connectors": {
-              "OUT_A": null
+              "OUT_A": {
+                "type": "pointer",
+                "dtype": "float32"
+              }
             },
-            "guid": "367da781-75f7-4922-ba29-d9513fa277fc"
+            "guid": "8aeb4256-d8bb-448d-a768-c6cd5e9d0098"
           },
-          "id": 12,
-          "scope_entry": "11",
-          "scope_exit": "12"
+          "id": 13,
+          "scope_entry": "12",
+          "scope_exit": "13"
+        },
+        {
+          "type": "AccessNode",
+          "label": "gpu_A_0",
+          "attributes": {
+            "debuginfo": null,
+            "data": "gpu_A_0",
+            "guid": "08d76505-9eaf-4f82-b5be-43aaa5c6bc01"
+          },
+          "id": 14,
+          "scope_entry": null,
+          "scope_exit": null
         },
         {
           "type": "AccessNode",
@@ -418,9 +483,9 @@
           "attributes": {
             "debuginfo": null,
             "data": "A",
-            "guid": "b68cd130-63d7-4315-894c-ae482638b6c1"
+            "guid": "ff2e715e-75ca-4680-b926-1e8b24365f5b"
           },
-          "id": 13,
+          "id": 15,
           "scope_entry": null,
           "scope_exit": null
         }
@@ -452,7 +517,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "96aab832-1cc9-4ade-b97e-f35165f09dfc",
+                "guid": "b3151a99-f71d-4337-8901-2470b4e10ca3",
                 "src_subset": {
                   "type": "Range",
                   "ranges": [
@@ -489,7 +554,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "b923d4dc-f1f9-453f-b99e-a6ffd29bc951",
+                "guid": "c8c39d85-a1ae-40a3-b57b-61629ec05fc6",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -497,28 +562,7 @@
               }
             }
           },
-          "src": "6",
-          "dst": "3",
-          "dst_connector": null,
-          "src_connector": null
-        },
-        {
-          "type": "MultiConnectorEdge",
-          "attributes": {
-            "data": {
-              "type": "Memlet",
-              "attributes": {
-                "volume": "1",
-                "debuginfo": null,
-                "guid": "e4e9cd96-50af-4da0-9199-be280de5d2d9",
-                "src_subset": null,
-                "dst_subset": null,
-                "is_data_src": false,
-                "num_accesses": "1"
-              }
-            }
-          },
-          "src": "6",
+          "src": "7",
           "dst": "4",
           "dst_connector": null,
           "src_connector": null
@@ -531,7 +575,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "b7c72c1c-04af-4d25-9975-3c5572dbbfe2",
+                "guid": "f45ec6a1-3dea-432b-ae2c-139fa3bbc7fc",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -539,49 +583,7 @@
               }
             }
           },
-          "src": "9",
-          "dst": "6",
-          "dst_connector": null,
-          "src_connector": null
-        },
-        {
-          "type": "MultiConnectorEdge",
-          "attributes": {
-            "data": {
-              "type": "Memlet",
-              "attributes": {
-                "volume": "1",
-                "debuginfo": null,
-                "guid": "34efa9da-b358-4ff1-9705-46d28c83ecbe",
-                "src_subset": null,
-                "dst_subset": null,
-                "is_data_src": false,
-                "num_accesses": "1"
-              }
-            }
-          },
-          "src": "9",
-          "dst": "11",
-          "dst_connector": null,
-          "src_connector": null
-        },
-        {
-          "type": "MultiConnectorEdge",
-          "attributes": {
-            "data": {
-              "type": "Memlet",
-              "attributes": {
-                "volume": "1",
-                "debuginfo": null,
-                "guid": "ac6abf04-db07-4d51-ae70-3e86a91a62ad",
-                "src_subset": null,
-                "dst_subset": null,
-                "is_data_src": false,
-                "num_accesses": "1"
-              }
-            }
-          },
-          "src": "11",
+          "src": "7",
           "dst": "5",
           "dst_connector": null,
           "src_connector": null
@@ -594,7 +596,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "e960dd59-4678-4270-b8a0-900d450c3aa7",
+                "guid": "3ae1a61b-19bb-4d90-bf8b-ff0789a619be",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -602,8 +604,147 @@
               }
             }
           },
-          "src": "11",
-          "dst": "8",
+          "src": "10",
+          "dst": "7",
+          "dst_connector": null,
+          "src_connector": null
+        },
+        {
+          "type": "MultiConnectorEdge",
+          "attributes": {
+            "data": {
+              "type": "Memlet",
+              "attributes": {
+                "volume": "1",
+                "debuginfo": null,
+                "guid": "c5b6e46e-27a5-4e09-9c9d-a778d6fbdb90",
+                "src_subset": null,
+                "dst_subset": null,
+                "is_data_src": false,
+                "num_accesses": "1"
+              }
+            }
+          },
+          "src": "10",
+          "dst": "12",
+          "dst_connector": null,
+          "src_connector": null
+        },
+        {
+          "type": "MultiConnectorEdge",
+          "attributes": {
+            "data": {
+              "type": "Memlet",
+              "attributes": {
+                "volume": "1",
+                "debuginfo": null,
+                "guid": "f60b3517-8a1b-48e9-8d95-71548573b5a0",
+                "src_subset": null,
+                "dst_subset": null,
+                "is_data_src": false,
+                "num_accesses": "1"
+              }
+            }
+          },
+          "src": "12",
+          "dst": "6",
+          "dst_connector": null,
+          "src_connector": null
+        },
+        {
+          "type": "MultiConnectorEdge",
+          "attributes": {
+            "data": {
+              "type": "Memlet",
+              "attributes": {
+                "volume": "1",
+                "debuginfo": null,
+                "guid": "fa01f7f8-df82-449c-b968-32aefb499eeb",
+                "src_subset": null,
+                "dst_subset": null,
+                "is_data_src": false,
+                "num_accesses": "1"
+              }
+            }
+          },
+          "src": "12",
+          "dst": "9",
+          "dst_connector": null,
+          "src_connector": null
+        },
+        {
+          "type": "MultiConnectorEdge",
+          "attributes": {
+            "data": {
+              "type": "Memlet",
+              "attributes": {
+                "volume": "M*N",
+                "subset": {
+                  "type": "Range",
+                  "ranges": [
+                    {
+                      "start": "0",
+                      "end": "M - 1",
+                      "step": "1",
+                      "tile": "1"
+                    },
+                    {
+                      "start": "0",
+                      "end": "N - 1",
+                      "step": "1",
+                      "tile": "1"
+                    }
+                  ]
+                },
+                "data": "gpu_A_0",
+                "debuginfo": null,
+                "guid": "d9b0326f-bcad-4292-b7ca-1d30b37994a6",
+                "src_subset": null,
+                "dst_subset": {
+                  "type": "Range",
+                  "ranges": [
+                    {
+                      "start": "0",
+                      "end": "M - 1",
+                      "step": "1",
+                      "tile": "1"
+                    },
+                    {
+                      "start": "0",
+                      "end": "N - 1",
+                      "step": "1",
+                      "tile": "1"
+                    }
+                  ]
+                },
+                "is_data_src": false,
+                "num_accesses": "M*N"
+              }
+            }
+          },
+          "src": "3",
+          "dst": "14",
+          "dst_connector": null,
+          "src_connector": null
+        },
+        {
+          "type": "MultiConnectorEdge",
+          "attributes": {
+            "data": {
+              "type": "Memlet",
+              "attributes": {
+                "volume": "1",
+                "debuginfo": null,
+                "guid": "0dce08bf-b81e-45e0-ba76-f10d3d749728",
+                "src_subset": null,
+                "dst_subset": null,
+                "is_data_src": false,
+                "num_accesses": "1"
+              }
+            }
+          },
+          "src": "2",
+          "dst": "10",
           "dst_connector": null,
           "src_connector": null
         },
@@ -633,7 +774,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "145f9f06-89b6-4f33-beb2-3b139373f710",
+                "guid": "eda2f19a-9ae4-44d7-9293-3e4af73a3911",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -657,8 +798,8 @@
               }
             }
           },
-          "src": "2",
-          "dst": "13",
+          "src": "14",
+          "dst": "15",
           "dst_connector": null,
           "src_connector": null
         },
@@ -668,18 +809,52 @@
             "data": {
               "type": "Memlet",
               "attributes": {
-                "volume": "1",
+                "volume": "M*N",
+                "subset": {
+                  "type": "Range",
+                  "ranges": [
+                    {
+                      "start": "0",
+                      "end": "M - 1",
+                      "step": "1",
+                      "tile": "1"
+                    },
+                    {
+                      "start": "0",
+                      "end": "N - 1",
+                      "step": "1",
+                      "tile": "1"
+                    }
+                  ]
+                },
+                "data": "gpu_A_0",
                 "debuginfo": null,
-                "guid": "546f7e37-a05a-46d3-83c7-c7359dc55911",
-                "src_subset": null,
+                "guid": "771255c3-690e-4277-ac0c-86acb040de66",
+                "src_subset": {
+                  "type": "Range",
+                  "ranges": [
+                    {
+                      "start": "0",
+                      "end": "M - 1",
+                      "step": "1",
+                      "tile": "1"
+                    },
+                    {
+                      "start": "0",
+                      "end": "N - 1",
+                      "step": "1",
+                      "tile": "1"
+                    }
+                  ]
+                },
                 "dst_subset": null,
-                "is_data_src": false,
-                "num_accesses": "1"
+                "is_data_src": true,
+                "num_accesses": "M*N"
               }
             }
           },
           "src": "1",
-          "dst": "9",
+          "dst": "2",
           "dst_connector": null,
           "src_connector": null
         },
@@ -709,7 +884,7 @@
                 },
                 "data": "gpu_A",
                 "debuginfo": null,
-                "guid": "be13fa26-306e-4874-ac1f-7c6ce0703f35",
+                "guid": "7e4a7f8b-f5b6-4171-a4fb-42a012f185c9",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -733,8 +908,8 @@
               }
             }
           },
-          "src": "10",
-          "dst": "2",
+          "src": "11",
+          "dst": "3",
           "dst_connector": null,
           "src_connector": "OUT_A"
         },
@@ -764,7 +939,7 @@
                 },
                 "data": "gpu_A",
                 "debuginfo": null,
-                "guid": "7d4f48da-e336-4012-8d74-14742fb40440",
+                "guid": "a8eb4b31-c634-4663-a4ec-3de3da581c8e",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -788,8 +963,8 @@
               }
             }
           },
-          "src": "7",
-          "dst": "10",
+          "src": "8",
+          "dst": "11",
           "dst_connector": "IN_A",
           "src_connector": "OUT_A"
         },
@@ -819,7 +994,7 @@
                 },
                 "data": "gpu_A",
                 "debuginfo": null,
-                "guid": "1271757b-3056-4c63-bba1-6446ef76f10e",
+                "guid": "1b8be7b5-5d7b-4451-a64c-da0e72672f3d",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -843,8 +1018,8 @@
               }
             }
           },
-          "src": "12",
-          "dst": "10",
+          "src": "13",
+          "dst": "11",
           "dst_connector": "IN_A",
           "src_connector": "OUT_A"
         },
@@ -874,7 +1049,7 @@
                 },
                 "data": "gpu_A",
                 "debuginfo": null,
-                "guid": "43d6f9b4-bcd4-4658-bed1-737f38fd73c3",
+                "guid": "bd1db35b-585d-4e44-9a29-4985607a5dd4",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -882,61 +1057,6 @@
                     {
                       "start": "0",
                       "end": "0",
-                      "step": "1",
-                      "tile": "1"
-                    },
-                    {
-                      "start": "t",
-                      "end": "t",
-                      "step": "1",
-                      "tile": "1"
-                    }
-                  ]
-                },
-                "is_data_src": false,
-                "num_accesses": "1"
-              }
-            }
-          },
-          "src": "3",
-          "dst": "7",
-          "dst_connector": "IN_A",
-          "src_connector": "__out"
-        },
-        {
-          "type": "MultiConnectorEdge",
-          "attributes": {
-            "data": {
-              "type": "Memlet",
-              "attributes": {
-                "volume": "1",
-                "subset": {
-                  "type": "Range",
-                  "ranges": [
-                    {
-                      "start": "M - 1",
-                      "end": "M - 1",
-                      "step": "1",
-                      "tile": "1"
-                    },
-                    {
-                      "start": "t",
-                      "end": "t",
-                      "step": "1",
-                      "tile": "1"
-                    }
-                  ]
-                },
-                "data": "gpu_A",
-                "debuginfo": null,
-                "guid": "a19416de-d420-4664-953b-2da45dcbdf2c",
-                "src_subset": null,
-                "dst_subset": {
-                  "type": "Range",
-                  "ranges": [
-                    {
-                      "start": "M - 1",
-                      "end": "M - 1",
                       "step": "1",
                       "tile": "1"
                     },
@@ -954,7 +1074,7 @@
             }
           },
           "src": "4",
-          "dst": "7",
+          "dst": "8",
           "dst_connector": "IN_A",
           "src_connector": "__out"
         },
@@ -969,14 +1089,14 @@
                   "type": "Range",
                   "ranges": [
                     {
-                      "start": "t",
-                      "end": "t",
+                      "start": "M - 1",
+                      "end": "M - 1",
                       "step": "1",
                       "tile": "1"
                     },
                     {
-                      "start": "0",
-                      "end": "0",
+                      "start": "t",
+                      "end": "t",
                       "step": "1",
                       "tile": "1"
                     }
@@ -984,20 +1104,20 @@
                 },
                 "data": "gpu_A",
                 "debuginfo": null,
-                "guid": "d7b47b78-b33e-47f9-846b-7da78090054c",
+                "guid": "55a4ddb0-b967-457c-8f75-d4473ed58ce3",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
                   "ranges": [
                     {
-                      "start": "t",
-                      "end": "t",
+                      "start": "M - 1",
+                      "end": "M - 1",
                       "step": "1",
                       "tile": "1"
                     },
                     {
-                      "start": "0",
-                      "end": "0",
+                      "start": "t",
+                      "end": "t",
                       "step": "1",
                       "tile": "1"
                     }
@@ -1009,7 +1129,62 @@
             }
           },
           "src": "5",
-          "dst": "12",
+          "dst": "8",
+          "dst_connector": "IN_A",
+          "src_connector": "__out"
+        },
+        {
+          "type": "MultiConnectorEdge",
+          "attributes": {
+            "data": {
+              "type": "Memlet",
+              "attributes": {
+                "volume": "1",
+                "subset": {
+                  "type": "Range",
+                  "ranges": [
+                    {
+                      "start": "t",
+                      "end": "t",
+                      "step": "1",
+                      "tile": "1"
+                    },
+                    {
+                      "start": "0",
+                      "end": "0",
+                      "step": "1",
+                      "tile": "1"
+                    }
+                  ]
+                },
+                "data": "gpu_A",
+                "debuginfo": null,
+                "guid": "d9b23400-e5bd-49e0-822a-230d8b343890",
+                "src_subset": null,
+                "dst_subset": {
+                  "type": "Range",
+                  "ranges": [
+                    {
+                      "start": "t",
+                      "end": "t",
+                      "step": "1",
+                      "tile": "1"
+                    },
+                    {
+                      "start": "0",
+                      "end": "0",
+                      "step": "1",
+                      "tile": "1"
+                    }
+                  ]
+                },
+                "is_data_src": false,
+                "num_accesses": "1"
+              }
+            }
+          },
+          "src": "6",
+          "dst": "13",
           "dst_connector": "IN_A",
           "src_connector": "__out"
         },
@@ -1039,7 +1214,7 @@
                 },
                 "data": "gpu_A",
                 "debuginfo": null,
-                "guid": "669b5de8-6b59-49e1-acb7-5369c59ae16b",
+                "guid": "b0a0bd91-d9c3-4b13-82fa-f0a413e111ce",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -1063,14 +1238,14 @@
               }
             }
           },
-          "src": "8",
-          "dst": "12",
+          "src": "9",
+          "dst": "13",
           "dst_connector": "IN_A",
           "src_connector": "__out"
         }
       ],
       "attributes": {
-        "guid": "abf1cc2c-e35a-42e0-a75e-66658f14d1f3"
+        "guid": "3d067a17-fa0a-45dc-afd4-26fb120dff7d"
       }
     }
   ],

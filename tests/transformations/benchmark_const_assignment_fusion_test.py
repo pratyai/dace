@@ -132,7 +132,7 @@ def assign_bounary_3d(A: dace.float32[K, M, N]):
 
 
 def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
-    m, n = 1000, 2000
+    m, n = 10000, 20000
     A = np.random.uniform(size=(m, n)).astype(np.float32)
 
     def original_op():

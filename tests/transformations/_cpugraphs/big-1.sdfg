@@ -24,6 +24,7 @@
             "M",
             "N"
           ],
+          "storage": "CPU_Heap",
           "debuginfo": null
         }
       }
@@ -52,14 +53,14 @@
     },
     "debuginfo": {
       "type": "DebugInfo",
-      "start_line": 16,
-      "end_line": 19,
+      "start_line": 45,
+      "end_line": 48,
       "start_column": 0,
       "end_column": 0,
       "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
     },
-    "guid": "5b22116b-fbd3-4421-926c-798757ffcd2c",
-    "hash": "4fb25ea6021322cfb64f5169ea559fb1b8a8f557659207786ba5b2684eab5382"
+    "guid": "beedfcc1-198c-4134-b0fe-0cf94268f9db",
+    "hash": "488f59f5604cd5c398d30ffbedffca5f584e4ffe38482214b74e5049dda52ea7"
   },
   "nodes": [
     {
@@ -93,14 +94,14 @@
           "attributes": {
             "debuginfo": {
               "type": "DebugInfo",
-              "start_line": 18,
-              "end_line": 18,
+              "start_line": 47,
+              "end_line": 47,
               "start_column": 4,
               "end_column": 4,
               "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
             },
             "data": "A",
-            "guid": "ca003c85-639f-4cb6-befe-f9131359fb87"
+            "guid": "6d9ab8ea-5e51-4afd-b53a-7366e15b12d4"
           },
           "id": 0,
           "scope_entry": null,
@@ -108,7 +109,7 @@
         },
         {
           "type": "Tasklet",
-          "label": "assign_19_8",
+          "label": "assign_48_8",
           "attributes": {
             "code": {
               "string_data": "__out = 1",
@@ -116,17 +117,17 @@
             },
             "debuginfo": {
               "type": "DebugInfo",
-              "start_line": 19,
-              "end_line": 19,
+              "start_line": 48,
+              "end_line": 48,
               "start_column": 13,
               "end_column": 13,
               "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
             },
-            "label": "assign_19_8",
+            "label": "assign_48_8",
             "out_connectors": {
-              "__out": null
+              "__out": "float32"
             },
-            "guid": "29f6a36e-3da2-470b-b3f3-9607ddfa2f66"
+            "guid": "f274105d-4ebe-434c-bb3c-9dd0c7911d97"
           },
           "id": 1,
           "scope_entry": "4",
@@ -134,7 +135,7 @@
         },
         {
           "type": "Tasklet",
-          "label": "assign_25_8",
+          "label": "assign_54_8",
           "attributes": {
             "code": {
               "string_data": "__out = 1",
@@ -142,17 +143,17 @@
             },
             "debuginfo": {
               "type": "DebugInfo",
-              "start_line": 25,
-              "end_line": 25,
+              "start_line": 54,
+              "end_line": 54,
               "start_column": 17,
               "end_column": 17,
               "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
             },
-            "label": "assign_25_8",
+            "label": "assign_54_8",
             "out_connectors": {
-              "__out": null
+              "__out": "float32"
             },
-            "guid": "24f4370c-09a1-4640-a3fb-1d950e848847"
+            "guid": "63e53621-47ad-4f85-83bb-bcfbbb84198d"
           },
           "id": 2,
           "scope_entry": "4",
@@ -164,14 +165,14 @@
           "attributes": {
             "debuginfo": {
               "type": "DebugInfo",
-              "start_line": 18,
-              "end_line": 18,
+              "start_line": 47,
+              "end_line": 47,
               "start_column": 4,
               "end_column": 4,
               "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
             },
             "data": "A",
-            "guid": "739652d7-be20-42b8-8f37-580baecf0832"
+            "guid": "5f0674a4-085b-46e9-a7a4-2fc3e1d1a373"
           },
           "id": 3,
           "scope_entry": null,
@@ -196,6 +197,7 @@
                 }
               ]
             },
+            "schedule": "CPU_Multicore",
             "debuginfo": {
               "type": "DebugInfo",
               "start_line": 512,
@@ -204,7 +206,8 @@
               "end_column": 0,
               "filename": "/home/pmazumder/gitspace/dace/dace/transformation/dataflow/const_assignment_fusion.py"
             },
-            "guid": "ddcb74be-c09c-403a-ba5f-2071a0d0f121"
+            "instrument": "Timer",
+            "guid": "fc7d2148-3265-43e8-b790-96f122b848a7"
           },
           "id": 4,
           "scope_entry": null,
@@ -215,12 +218,15 @@
           "label": "map_fusion_wrapper[t=0:N]",
           "attributes": {
             "in_connectors": {
-              "IN_A": null
+              "IN_A": "float32"
             },
             "out_connectors": {
-              "OUT_A": null
+              "OUT_A": {
+                "type": "pointer",
+                "dtype": "float32"
+              }
             },
-            "guid": "104d3fe6-aaf8-4b90-9d1b-966fefc9b123"
+            "guid": "5114f91f-d327-4932-90ac-bd858dc4821d"
           },
           "id": 5,
           "scope_entry": "4",
@@ -232,14 +238,14 @@
           "attributes": {
             "debuginfo": {
               "type": "DebugInfo",
-              "start_line": 30,
-              "end_line": 30,
+              "start_line": 59,
+              "end_line": 59,
               "start_column": 4,
               "end_column": 4,
               "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
             },
             "data": "A",
-            "guid": "5440d25e-b9c5-47d1-90b4-14ea7d9d6638"
+            "guid": "573bf418-8719-4850-8b31-8b0acd9735c5"
           },
           "id": 6,
           "scope_entry": null,
@@ -247,7 +253,7 @@
         },
         {
           "type": "Tasklet",
-          "label": "assign_31_8",
+          "label": "assign_60_8",
           "attributes": {
             "code": {
               "string_data": "__out = 1",
@@ -255,17 +261,17 @@
             },
             "debuginfo": {
               "type": "DebugInfo",
-              "start_line": 31,
-              "end_line": 31,
+              "start_line": 60,
+              "end_line": 60,
               "start_column": 13,
               "end_column": 13,
               "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
             },
-            "label": "assign_31_8",
+            "label": "assign_60_8",
             "out_connectors": {
-              "__out": null
+              "__out": "float32"
             },
-            "guid": "2fd4694c-6ce5-47d5-8c8d-a826446ee840"
+            "guid": "10e67979-b0e9-4255-85a9-0185b1f027ae"
           },
           "id": 7,
           "scope_entry": "9",
@@ -273,7 +279,7 @@
         },
         {
           "type": "Tasklet",
-          "label": "assign_37_8",
+          "label": "assign_66_8",
           "attributes": {
             "code": {
               "string_data": "__out = 1",
@@ -281,17 +287,17 @@
             },
             "debuginfo": {
               "type": "DebugInfo",
-              "start_line": 37,
-              "end_line": 37,
+              "start_line": 66,
+              "end_line": 66,
               "start_column": 17,
               "end_column": 17,
               "filename": "/home/pmazumder/gitspace/dace/tests/transformations/benchmark_const_assignment_fusion_test.py"
             },
-            "label": "assign_37_8",
+            "label": "assign_66_8",
             "out_connectors": {
-              "__out": null
+              "__out": "float32"
             },
-            "guid": "9d556e15-f927-44e0-950b-ccb609bff637"
+            "guid": "c91d8086-77a5-4841-8a67-a2c3c66a79da"
           },
           "id": 8,
           "scope_entry": "9",
@@ -316,6 +322,7 @@
                 }
               ]
             },
+            "schedule": "CPU_Multicore",
             "debuginfo": {
               "type": "DebugInfo",
               "start_line": 512,
@@ -324,7 +331,8 @@
               "end_column": 0,
               "filename": "/home/pmazumder/gitspace/dace/dace/transformation/dataflow/const_assignment_fusion.py"
             },
-            "guid": "6e3113f0-5bc2-4590-92c2-53c4ad315172"
+            "instrument": "Timer",
+            "guid": "0956a005-42af-44c2-bc87-7f40f3d6edc2"
           },
           "id": 9,
           "scope_entry": null,
@@ -335,12 +343,15 @@
           "label": "map_fusion_wrapper[l=0:M]",
           "attributes": {
             "in_connectors": {
-              "IN_A": null
+              "IN_A": "float32"
             },
             "out_connectors": {
-              "OUT_A": null
+              "OUT_A": {
+                "type": "pointer",
+                "dtype": "float32"
+              }
             },
-            "guid": "d2a2554c-973c-4248-921d-e58cf45ab26f"
+            "guid": "5d3fb221-8b41-474a-9510-a6423cbf8a4b"
           },
           "id": 10,
           "scope_entry": "9",
@@ -356,7 +367,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "38fda7dd-616d-47e4-ac46-bfd5d9e471ee",
+                "guid": "574ebd1f-ddb7-444d-b108-90af40b894e9",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -377,7 +388,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "9af065cd-6c4e-456a-a2c3-0bdadeec3af9",
+                "guid": "65b0abcb-da6d-4330-93d7-9d4ee7f1cb0f",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -398,7 +409,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "1ca7943f-49e3-48b3-8041-8215a6baa623",
+                "guid": "d9793481-74a9-4cba-af59-08de724a4596",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -419,7 +430,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "fc69dbab-dccf-474c-b75a-7d71ffd4b238",
+                "guid": "42a5de66-aab0-41f5-9236-267e9e3bee1d",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -440,7 +451,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "e33dc94c-6872-479b-aa3f-7ab9bbe63bb1",
+                "guid": "77fcd69a-f585-4ebf-ad90-1f7ab7ebaa98",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -461,7 +472,7 @@
               "attributes": {
                 "volume": "1",
                 "debuginfo": null,
-                "guid": "a74fd89f-f622-475b-9ede-3ea47d66721a",
+                "guid": "616b0943-89eb-425f-b4cd-319f3d2e7b4a",
                 "src_subset": null,
                 "dst_subset": null,
                 "is_data_src": false,
@@ -500,7 +511,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "7a769c82-4709-4694-adbd-9ac797eaba26",
+                "guid": "99633252-853f-49fe-8a01-7d31daf40b04",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -555,7 +566,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "d6330253-ca5d-459c-b67e-b85927d33094",
+                "guid": "73ca6701-3627-46b6-abb0-0caad8e227e8",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -610,7 +621,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "4d461940-a16a-4556-8854-99ed6d906ae6",
+                "guid": "dbefd9c8-98b0-4467-a95e-94adf2a9f5cb",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -665,7 +676,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "cfd116d7-f761-4a59-aeaf-194205af8860",
+                "guid": "f34e376e-8340-41fe-b902-eafdcd0320d6",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -720,7 +731,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "784b71c2-d387-4653-82c1-d56e6cd0ddd9",
+                "guid": "b9ba1d00-920c-4510-a016-d937d5209611",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -775,7 +786,7 @@
                 },
                 "data": "A",
                 "debuginfo": null,
-                "guid": "59cfaf21-a641-4cb3-a297-2d1a9575fde9",
+                "guid": "53d02637-555f-4155-b98d-bb4e72adcc94",
                 "src_subset": null,
                 "dst_subset": {
                   "type": "Range",
@@ -808,7 +819,7 @@
       "attributes": {
         "executions": "1",
         "dynamic_executions": false,
-        "guid": "137e7a4a-0b63-470b-b68e-e7cacf200ae0"
+        "guid": "ac844a2f-0489-41ac-90b8-4fcdb254de28"
       }
     }
   ],
