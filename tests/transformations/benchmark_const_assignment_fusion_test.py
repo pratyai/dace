@@ -26,7 +26,7 @@ def instrument_map_kernels(g: SDFG):
     g.clear_instrumentation_reports()
 
 
-def produce_combined_instrumentation_report(g: SDFG) -> Optional[InstrumentationReport]:
+def produce_combined_instrumentation_report(g: SDFG, filename: Optional[str] = None) -> Optional[InstrumentationReport]:
     all_ins = g.get_instrumentation_reports()
     if not all_ins:
         return None
@@ -34,6 +34,8 @@ def produce_combined_instrumentation_report(g: SDFG) -> Optional[Instrumentation
     for i in all_ins:
         ins.events.extend(deepcopy(i.events))
     ins.process_events()
+    if filename:
+        ins.save(filename)
     return ins
 
 
@@ -169,7 +171,7 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=actual_A, M=m, N=n)
     print('===2D boundary init: original op===')
-    print(produce_combined_instrumentation_report(g))
+    print(produce_combined_instrumentation_report(g, filename='2d-orig.json'))
 
     # === Part 2: Fused Op w/o. grid-strided loop === #
     g = deepcopy(fused_op(False))
@@ -179,7 +181,7 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=our_A, M=m, N=n)
     print('===2D boundary init: fused op w/o. grid-strided loop===')
-    print(produce_combined_instrumentation_report(g))
+    print(produce_combined_instrumentation_report(g, filename='2d-no-gsl.json'))
     assert np.all(np.equal(our_A, actual_A))
 
     # === Part 3: Fused Op w. grid-strided loop === #
@@ -190,7 +192,7 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=our_A, M=m, N=n)
     print('===2D boundary init: fused op with grid-strided loop===')
-    print(produce_combined_instrumentation_report(g))
+    print(produce_combined_instrumentation_report(g, filename='2d-gsl.json'))
     assert np.all(np.equal(our_A, actual_A))
 
 
@@ -231,7 +233,7 @@ def benchmark_3d_boundary_init(device: DeviceType = DeviceType.CPU):
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=actual_A, K=k, M=m, N=n)
     print('===3D boundary init: original op===')
-    print(produce_combined_instrumentation_report(g))
+    print(produce_combined_instrumentation_report(g, filename='3d-orig.json'))
 
     # === Part 2: Fused Op w/o. grid-strided loop === #
     g = deepcopy(fused_op(False))
@@ -240,7 +242,7 @@ def benchmark_3d_boundary_init(device: DeviceType = DeviceType.CPU):
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=our_A, K=k, M=m, N=n)
     print('===3D boundary init: fused op w/o. grid-strided loop===')
-    print(produce_combined_instrumentation_report(g))
+    print(produce_combined_instrumentation_report(g, filename='3d-no-gsl.json'))
     assert np.all(np.equal(our_A, actual_A))
 
     # === Part 3: Fused Op w. grid-strided loop === #
@@ -250,7 +252,7 @@ def benchmark_3d_boundary_init(device: DeviceType = DeviceType.CPU):
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=our_A, K=k, M=m, N=n)
     print('===3D boundary init: fused op with grid-strided loop===')
-    print(produce_combined_instrumentation_report(g))
+    print(produce_combined_instrumentation_report(g, filename='3d-gsl.json'))
     assert np.all(np.equal(our_A, actual_A))
 
 
