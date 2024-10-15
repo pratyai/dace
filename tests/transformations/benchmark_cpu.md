@@ -4,7 +4,7 @@ rootdir: /home/pmazumder/gitspace/dace
 configfile: pytest.ini
 collected 4 items / 2 deselected / 2 selected
 
-tests/transformations/benchmark_const_assignment_fusion_test.py Profiling:   0%|          | 0/1010 [00:00<?, ?it/s]Profiling:  77%|███████▋  | 775/1010 [00:00<00:00, 7744.15it/s]Profiling: 100%|██████████| 1010/1010 [00:00<00:00, 7753.14it/s]
+
 benchmark_const_assignment_fusion_test_assign_top_row_0 0.13079101336188614 ms
 ===2D boundary init: original op===
 Instrumentation report
@@ -38,7 +38,7 @@ SDFG (0)
 | | |          0.004          0.006          0.005          0.100          
 ---------------------------------------------------------------------------
 
-Profiling:   0%|          | 0/1010 [00:00<?, ?it/s]Profiling:  89%|████████▉ | 900/1010 [00:00<00:00, 8996.62it/s]Profiling: 100%|██████████| 1010/1010 [00:00<00:00, 8984.27it/s]
+
 benchmark_const_assignment_fusion_test_assign_top_row_0 0.11151551734656096 ms
 ===2D boundary init: fused op w/o. grid-strided loop===
 Instrumentation report
@@ -61,7 +61,7 @@ SDFG (0)
 | | |          0.004          0.006          0.005          0.054          
 ---------------------------------------------------------------------------
 
-Profiling:   0%|          | 0/1010 [00:00<?, ?it/s]Profiling:  96%|█████████▌| 972/1010 [00:00<00:00, 9715.45it/s]Profiling: 100%|██████████| 1010/1010 [00:00<00:00, 9689.16it/s]
+
 benchmark_const_assignment_fusion_test_assign_top_row_0 0.10572001338005066 ms
 ===2D boundary init: fused op with grid-strided loop===
 Instrumentation report
@@ -80,7 +80,7 @@ SDFG (0)
 | | |          0.009          0.022          0.022          0.024          
 ---------------------------------------------------------------------------
 
-[32m.[0mProfiling:   0%|          | 0/1010 [00:00<?, ?it/s]Profiling:  42%|████▏     | 425/1010 [00:00<00:00, 4246.75it/s]Profiling:  85%|████████▍ | 855/1010 [00:00<00:00, 4273.45it/s]Profiling: 100%|██████████| 1010/1010 [00:00<00:00, 4271.55it/s]
+
 benchmark_const_assignment_fusion_test_assign_bounary_3d 0.23336600861512125 ms
 ===3D boundary init: original op===
 Instrumentation report
@@ -124,7 +124,7 @@ SDFG (0)
 | | |          0.024          0.026          0.025          0.051          
 ---------------------------------------------------------------------------
 
-Profiling:   0%|          | 0/1010 [00:00<?, ?it/s]Profiling:  51%|█████▏    | 519/1010 [00:00<00:00, 5187.11it/s]Profiling: 100%|██████████| 1010/1010 [00:00<00:00, 5194.85it/s]
+
 benchmark_const_assignment_fusion_test_assign_bounary_3d 0.19121551304124296 ms
 ===3D boundary init: fused op w/o. grid-strided loop===
 Instrumentation report
@@ -151,7 +151,7 @@ SDFG (0)
 | | |          0.037          0.043          0.042          0.066          
 ---------------------------------------------------------------------------
 
-Profiling:   0%|          | 0/1010 [00:00<?, ?it/s]Profiling:  53%|█████▎    | 531/1010 [00:00<00:00, 5304.71it/s]Profiling: 100%|██████████| 1010/1010 [00:00<00:00, 5295.55it/s]
+
 benchmark_const_assignment_fusion_test_assign_bounary_3d 0.18826551968231797 ms
 ===3D boundary init: fused op with grid-strided loop===
 Instrumentation report
