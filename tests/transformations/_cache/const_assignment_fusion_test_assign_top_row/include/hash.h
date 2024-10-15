@@ -1,1 +1,0 @@
-#define __HASH_const_assignment_fusion_test_assign_top_row "670c00d804a25ce400251bef1dfa0aefdb01ed52e702bd7978f53d600c9c2847"
