@@ -1,12 +1,41 @@
 import os
 from copy import deepcopy
+from typing import Optional
 
 import numpy as np
 
 import dace
-from dace import DeviceType
-from dace.transformation.auto import auto_optimize
+from dace import DeviceType, SDFG, GPU_SCHEDULES, InstrumentationType, CPU_SCHEDULES
+from dace.codegen.instrumentation import InstrumentationReport
+from dace.sdfg.nodes import MapEntry
+from dace.transformation.auto.auto_optimize import auto_optimize
 from dace.transformation.dataflow.const_assignment_fusion import ConstAssignmentStateFusion
+
+
+def instrument_map_kernels(g: SDFG):
+    for n, st in g.all_nodes_recursive():
+        if not isinstance(n, MapEntry):
+            continue
+        if n.map.schedule in CPU_SCHEDULES:
+            n.map.instrument = InstrumentationType.Timer
+            # st.instrument = InstrumentationType.Timer
+        elif n.map.schedule in GPU_SCHEDULES:
+            n.map.instrument = InstrumentationType.GPU_Events
+            # st.instrument = InstrumentationType.GPU_Events
+    # g.instrument = InstrumentationType.Timer
+    g.clear_instrumentation_reports()
+
+
+def produce_combined_instrumentation_report(g: SDFG) -> Optional[InstrumentationReport]:
+    all_ins = g.get_instrumentation_reports()
+    if not all_ins:
+        return None
+    ins = InstrumentationReport(filename='')
+    for i in all_ins:
+        ins.events.extend(deepcopy(i.events))
+    ins.process_events()
+    return ins
+
 
 K = dace.symbol('K')
 M = dace.symbol('M')
@@ -112,7 +141,8 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
             g.apply_gpu_transformations(validate=True, validate_all=True, permissive=True, sequential_innermaps=True,
                                         register_transients=False, simplify=False)
         g.simplify()
-        # g = auto_optimize.auto_optimize(g, device)
+        g = auto_optimize(g, device)
+        instrument_map_kernels(g)
         g.validate()
         g.compile()
         return g
@@ -125,6 +155,8 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
             g.apply_gpu_transformations(validate=True, validate_all=True, permissive=True, sequential_innermaps=True,
                                         register_transients=False, simplify=False)
         g.simplify()
+        g = auto_optimize(g, device)
+        instrument_map_kernels(g)
         g.validate()
         g.compile()
         return g
@@ -136,8 +168,8 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
     actual_A = deepcopy(A)
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=actual_A, M=m, N=n)
-    print('2D boundary init: original op')
-    print(prof.report)
+    print('===2D boundary init: original op===')
+    print(produce_combined_instrumentation_report(g))
 
     # === Part 2: Fused Op w/o. grid-strided loop === #
     g = deepcopy(fused_op(False))
@@ -146,8 +178,8 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
     our_A = deepcopy(A)
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=our_A, M=m, N=n)
-    print('2D boundary init: fused op w/o. grid-strided loop')
-    print(prof.report)
+    print('===2D boundary init: fused op w/o. grid-strided loop===')
+    print(produce_combined_instrumentation_report(g))
     assert np.all(np.equal(our_A, actual_A))
 
     # === Part 3: Fused Op w. grid-strided loop === #
@@ -157,8 +189,8 @@ def benchmark_2d_boundary_init(device: DeviceType = DeviceType.CPU):
     our_A = deepcopy(A)
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=our_A, M=m, N=n)
-    print('2D boundary init: fused op with grid-strided loop')
-    print(prof.report)
+    print('===2D boundary init: fused op with grid-strided loop===')
+    print(produce_combined_instrumentation_report(g))
     assert np.all(np.equal(our_A, actual_A))
 
 
@@ -172,6 +204,8 @@ def benchmark_3d_boundary_init(device: DeviceType = DeviceType.CPU):
             g.apply_gpu_transformations(validate=True, validate_all=True, permissive=True, sequential_innermaps=True,
                                         register_transients=False, simplify=False)
         g.simplify()
+        g = auto_optimize(g, device)
+        instrument_map_kernels(g)
         g.validate()
         g.compile()
         return g
@@ -184,6 +218,8 @@ def benchmark_3d_boundary_init(device: DeviceType = DeviceType.CPU):
             g.apply_gpu_transformations(validate=True, validate_all=True, permissive=True, sequential_innermaps=True,
                                         register_transients=False, simplify=False)
         g.simplify()
+        g = auto_optimize(g, device)
+        instrument_map_kernels(g)
         g.validate()
         g.compile()
         return g
@@ -191,33 +227,30 @@ def benchmark_3d_boundary_init(device: DeviceType = DeviceType.CPU):
     # === Part 1: Original Op === #
     g = deepcopy(original_op())
     g.save(os.path.join('_dacegraphs', '3d-big-0.sdfg'))
-    # g.instrument = dace.InstrumentationType.Timer
     actual_A = deepcopy(A)
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=actual_A, K=k, M=m, N=n)
-    print('3D boundary init: original op')
-    print(prof.report)
+    print('===3D boundary init: original op===')
+    print(produce_combined_instrumentation_report(g))
 
     # === Part 2: Fused Op w/o. grid-strided loop === #
     g = deepcopy(fused_op(False))
     g.save(os.path.join('_dacegraphs', '3d-big-1.sdfg'))
-    # g.instrument = dace.InstrumentationType.Timer
     our_A = deepcopy(A)
     with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=our_A, K=k, M=m, N=n)
-    print('3D boundary init: fused op w/o. grid-strided loop')
-    print(prof.report)
+    print('===3D boundary init: fused op w/o. grid-strided loop===')
+    print(produce_combined_instrumentation_report(g))
     assert np.all(np.equal(our_A, actual_A))
 
     # === Part 3: Fused Op w. grid-strided loop === #
     g = deepcopy(fused_op(True))
     g.save(os.path.join('_dacegraphs', '3d-big-2.sdfg'))
-    # g.instrument = dace.InstrumentationType.Timer
     our_A = deepcopy(A)
-    with dace.profile(repetitions=100, warmup=10) as prof:
+    with dace.profile(repetitions=1000, warmup=10) as prof:
         g(A=our_A, K=k, M=m, N=n)
-    print('3D boundary init: fused op with grid-strided loop')
-    print(prof.report)
+    print('===3D boundary init: fused op with grid-strided loop===')
+    print(produce_combined_instrumentation_report(g))
     assert np.all(np.equal(our_A, actual_A))
 
 
