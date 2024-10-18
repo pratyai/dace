@@ -206,10 +206,10 @@ def run_cavity_flow(device_type: dace.dtypes.DeviceType):
 
     # USING ConstAssignmentStateFusion
     use_const_fusion = True
-    use_gsls = False
+    use_gsls = True
     if use_const_fusion:
         g.apply_transformations_repeated(ConstAssignmentStateFusion,
-                                         opts = {'use_grid_strided_loops': use_gsls})
+                                         options = {'use_grid_strided_loops': use_gsls})
 
     g.validate()
     instrument_map_kernels(g)
