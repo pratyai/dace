@@ -29,11 +29,11 @@ def instrument_map_kernels(g: SDFG):
             continue
         if n.map.schedule in CPU_SCHEDULES:
             n.map.instrument = InstrumentationType.Timer
-            # st.instrument = InstrumentationType.Timer
+            st.instrument = InstrumentationType.Timer
         elif n.map.schedule in GPU_SCHEDULES:
             n.map.instrument = InstrumentationType.GPU_Events
-            # st.instrument = InstrumentationType.GPU_Events
-    # g.instrument = InstrumentationType.Timer
+            st.instrument = InstrumentationType.GPU_Events
+    g.instrument = InstrumentationType.Timer
     g.clear_instrumentation_reports()
 
 
