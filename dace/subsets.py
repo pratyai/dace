@@ -1,6 +1,13 @@
 # Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
+import operator
 
+import dace.serialize
+from dace import data, symbolic, dtypes
 import re
+import sympy as sp
+from functools import reduce
+import sympy.core.sympify
+from typing import List, Optional, Sequence, Set, Union, Self
 import warnings
 from functools import reduce
 from typing import List, Optional, Sequence, Set, Union, Collection
@@ -363,6 +370,10 @@ class Range(Subset):
                             (step.expr if isinstance(step, symbolic.SymExpr) else step))
             for (iMin, iMax, step), ts in zip(self.ranges, self.tile_sizes)
         ]
+
+    def volume_exact(self) -> int:
+        """ Returns the total number of elements in all dimenssions together. """
+        return reduce(operator.mul, self.size_exact())
 
     def bounding_box_size(self):
         """ Returns the size of a bounding box around this range. """
@@ -732,7 +743,7 @@ class Range(Subset):
                         new_subset.append((rb + rs * other[idx][0], rb + rs * other[idx][1], rs * other[idx][2], rt))
                     else:
                         new_subset.append(rb + rs * other[idx])
-        elif (other.data_dims() == 0 and all([r == (0, 0, 1) if isinstance(other, Range) else r == 0 for r in other])):
+        elif other.data_dims() == 0 and all([r == (0, 0, 1) if isinstance(other, Range) else r == 0 for r in other]):
             # NOTE: This is a special case where the other subset is the
             # (potentially multidimensional) index zero.
             # For example, A[i, j] -> tmp[0]. The result of such a
@@ -925,6 +936,10 @@ class Indices(Subset):
 
     def size_exact(self):
         return self.size()
+
+    def volume_exact(self) -> int:
+        """ Returns the total number of elements in all dimenssions together. """
+        return reduce(operator.mul, self.size_exact())
 
     def min_element(self):
         return self.indices
@@ -1375,3 +1390,62 @@ def intersects(subset_a: Subset, subset_b: Subset) -> Union[bool, None]:
         return None
     except TypeError:  # cannot determine truth value of Relational
         return None
+
+
+class Reshaper:
+    def __init__(self, src: Range, dst: Range):
+        print(src, '//', dst)
+        src, dst = self.canonical(src), self.canonical(dst)
+        print(src, '//', dst)
+        assert src.volume_exact() == dst.volume_exact()
+        self.src, self.dst = src, dst
+
+    @staticmethod
+    def divceil(n, d):
+        return (n + d - 1) // d
+
+    @staticmethod
+    def canonical(r: Range) -> Range:
+        return Range([(b, b + s * Reshaper.divceil(e - b + 1, s) - 1, s)
+                      for b, e, s in r.ndrange()])
+
+    def map(self, r: Range) -> Optional[Range]:
+        r = self.canonical(r)
+        if not self.src.covers_precise(r):
+            return None
+        out = []
+        src_i, dst_i = 0, 0
+        while src_i < self.src.dims():
+            assert dst_i < self.dst.dims()
+
+            src_j, dst_j = None, None
+            for sj in range(src_i+1, self.src.dims()+1):
+                for dj in range(dst_i+1, self.dst.dims()+1):
+                    vol_sij = reduce(operator.mul, [(e - b + 1) // s for b, e, s in self.src.ranges[src_i:sj]])
+                    vol_dij = reduce(operator.mul, [(e - b + 1) // s for b, e, s in self.dst.ranges[dst_i:dj]])
+                    if vol_sij == vol_dij:
+                        src_j, dst_j = sj, dj
+                        break
+            if src_j is None:
+                return None
+
+            if src_j - src_i > 1 or dst_j - dst_i > 1:
+                # E.g., If we are reshaping [6, 5] to [2, 15], we are demanding that these dimensions must be wholly
+                # selected.
+                # TODO: Can we narrow down this case even more?
+                if self.src.ranges[src_i: src_j] != r.ranges[src_i: src_j]:
+                    return None
+                unif_stride = {s for b, e, s in self.src.ranges} | {s for b, e, s in self.dst.ranges}
+                if len(unif_stride) != 1:
+                    return None
+                out.extend(self.dst.ranges[dst_i:dst_j])
+            else:
+                sb, se, ss = self.src.ranges[src_i]
+                db, de, ds = self.dst.ranges[dst_i]
+                b, e, s = r.ranges[src_i]
+                lb, le, ls = (b - sb) // ss, (e - se) // ss - 1, s // ss
+                tb, te, ts = db + lb * ds, de + (le + 1) * ds, ds * ls
+                out.append((tb, te, ts))
+
+            src_i, dst_i = src_j, dst_j
+        return Range(out)
