@@ -1,6 +1,8 @@
 # Copyright 2019-2021 ETH Zurich and the DaCe authors. All rights reserved.
 import operator
 
+from sympy import ceiling
+
 import dace.serialize
 from dace import data, symbolic, dtypes
 import re
@@ -1392,7 +1394,14 @@ def intersects(subset_a: Subset, subset_b: Subset) -> Union[bool, None]:
         return None
 
 
-class Reshaper:
+class RangeRemapper:
+    """
+    Equipped with a `src` and a `dst` range of equal volumes but possibly different shapes or even dimensions (i.e.,
+    there is an 1-to-1 correspondence between the elements of `src` and `dst`), maps a subrange of `src` to its
+    counterpart in `dst`, if possible.
+
+    Note that such subrange-to-subrange mapping may not always exist.
+    """
     def __init__(self, src: Range, dst: Range):
         print(src, '//', dst)
         src, dst = self.canonical(src), self.canonical(dst)
@@ -1401,18 +1410,17 @@ class Reshaper:
         self.src, self.dst = src, dst
 
     @staticmethod
-    def divceil(n, d):
-        return (n + d - 1) // d
-
-    @staticmethod
     def canonical(r: Range) -> Range:
-        return Range([(b, b + s * Reshaper.divceil(e - b + 1, s) - 1, s)
+        """
+        Extends the (excluded) upper bound of each component of the ranges as much as possible, without affecting the
+        volume of the range.
+        """
+        return Range([(b, b + s * ceiling((e - b + 1) / s) - 1, s)
                       for b, e, s in r.ndrange()])
 
     def map(self, r: Range) -> Optional[Range]:
         r = self.canonical(r)
-        if not self.src.covers_precise(r):
-            return None
+        assert self.src.dims() == r.dims()
         out = []
         src_i, dst_i = 0, 0
         while src_i < self.src.dims():
@@ -1429,23 +1437,35 @@ class Reshaper:
             if src_j is None:
                 return None
 
-            if src_j - src_i > 1 or dst_j - dst_i > 1:
-                # E.g., If we are reshaping [6, 5] to [2, 15], we are demanding that these dimensions must be wholly
-                # selected.
-                # TODO: Can we narrow down this case even more?
-                if self.src.ranges[src_i: src_j] != r.ranges[src_i: src_j]:
-                    return None
-                unif_stride = {s for b, e, s in self.src.ranges} | {s for b, e, s in self.dst.ranges}
-                if len(unif_stride) != 1:
-                    return None
+            if Range(r.ranges[src_i: src_j]).volume_exact() == 1:
+                # If we are selecting just a single point in this segment, we can just pick the mapping of that point.
+                src_segment = Range(self.src.ranges[src_i: src_j])
+                loc = 0
+                for (idx, _, _), s in zip(reversed(r.ranges[src_i: src_j]),
+                                          reversed(src_segment.size())):
+                    loc = loc * s + idx
+                dst_coord = []
+                for s in self.dst.size():
+                    dst_coord.append(loc % s)
+                    loc = loc // s
+                out.extend([(idx, idx, 1) for idx in dst_coord])
+            elif self.src.ranges[src_i: src_j] == r.ranges[src_i: src_j]:
+                # If we are selecting the entirety of this segment, we can just pick the corresponding mapped segment in
+                # its entirety too.
                 out.extend(self.dst.ranges[dst_i:dst_j])
-            else:
+            elif src_j - src_i == 1 and dst_j - dst_i == 1:
+                # If the segment lengths on both sides are just 1, the mapping is easy to compute.
                 sb, se, ss = self.src.ranges[src_i]
                 db, de, ds = self.dst.ranges[dst_i]
                 b, e, s = r.ranges[src_i]
                 lb, le, ls = (b - sb) // ss, (e - se) // ss - 1, s // ss
                 tb, te, ts = db + lb * ds, de + (le + 1) * ds, ds * ls
                 out.append((tb, te, ts))
+            else:
+                # TODO: Can we narrow down this case even more? That would be number theoretic problem.
+                # E.g., If we are reshaping [6, 5] to [2, 15], we are demanding that these dimensions must be wholly
+                # selected for now.
+                return None
 
             src_i, dst_i = src_j, dst_j
         return Range(out)

@@ -1347,7 +1347,7 @@ def propagate_memlet(dfg_state,
     # Find other adjacent edges within the connected to the scope node
     # and union their subsets
     if union_inner_edges:
-        aggdata = [e.data for e in neighboring_edges if e.data.data == memlet.data and e.data != memlet]
+        aggdata = [e.data for e in neighboring_edges if e.data.data == memlet.data and e.data is not memlet]
     else:
         aggdata = []
 

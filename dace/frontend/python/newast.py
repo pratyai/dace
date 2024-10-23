@@ -4053,7 +4053,7 @@ class ProgramVisitor(ExtNodeVisitor):
             for other in inputs.values():
                 if not isinstance(other, dace.Memlet):
                     continue
-                if memlet == other and memlet.data == other.data:
+                if memlet is other and memlet.data == other.data:
                     isinput = True
                     break
             if access_key:

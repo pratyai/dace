@@ -502,9 +502,8 @@ class Memlet(object):
     # New fields
     @property
     def src_subset(self):
-        if self._is_data_src is not None:
-            return self.subset if self._is_data_src else self.other_subset
-        return self.subset
+        assert self._is_data_src is not None
+        return self.subset if self._is_data_src else self.other_subset
 
     @src_subset.setter
     def src_subset(self, new_src_subset):
@@ -518,9 +517,8 @@ class Memlet(object):
 
     @property
     def dst_subset(self):
-        if self._is_data_src is not None:
-            return self.other_subset if self._is_data_src else self.subset
-        return self.other_subset
+        assert self._is_data_src is not None
+        return self.other_subset if self._is_data_src else self.subset
 
     @dst_subset.setter
     def dst_subset(self, new_dst_subset):

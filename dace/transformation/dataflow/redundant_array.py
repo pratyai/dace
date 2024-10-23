@@ -7,7 +7,7 @@ import warnings
 from typing import Dict, List, Optional, Tuple
 
 import networkx as nx
-from dace.subsets import Range, Indices, Reshaper
+from dace.subsets import Range, Indices, RangeRemapper
 from networkx.exception import NetworkXError, NodeNotFound
 
 from dace import data, dtypes, Memlet
@@ -19,13 +19,14 @@ from dace.sdfg import utils as sdutil
 from dace.transformation import helpers
 from dace.transformation import transformation as pm
 
+
 # Helper methods #############################################################
 
 
 def _validate_subsets(edge: graph.MultiConnectorEdge,
                       arrays: Dict[str, data.Data],
                       src_name: str = None,
-                      dst_name: str = None) -> Tuple[subsets.Subset]:
+                      dst_name: str = None) -> Tuple[subsets.Subset, subsets.Subset]:
     """ Extracts and validates src and dst subsets from the edge. """
 
     # Find src and dst names
@@ -422,84 +423,6 @@ class RedundantArray(pm.SingleStateTransformation):
 
         return True
 
-    def _make_view(self, sdfg: SDFG, graph: SDFGState, in_array: nodes.AccessNode, out_array: nodes.AccessNode,
-                   e1: graph.MultiConnectorEdge[mm.Memlet], b_subset: subsets.Subset, b_dims_to_pop: List[int]):
-        in_desc = sdfg.arrays[in_array.data]
-        out_desc = sdfg.arrays[out_array.data]
-        # NOTE: We do not want to create another view, if the immediate
-        # ancestors of in_array are views as well. We just remove it.
-        in_ancestors_desc = [
-            e.src.desc(sdfg) if isinstance(e.src, nodes.AccessNode) else None for e in graph.in_edges(in_array)
-        ]
-        if all([desc and isinstance(desc, data.View) for desc in in_ancestors_desc]):
-            for e in graph.in_edges(in_array):
-                a_subset, _ = _validate_subsets(e, sdfg.arrays)
-                graph.add_edge(
-                    e.src, e.src_conn, out_array, None,
-                    mm.Memlet(out_array.data,
-                              subset=b_subset,
-                              other_subset=a_subset,
-                              wcr=e1.data.wcr,
-                              wcr_nonatomic=e1.data.wcr_nonatomic))
-                graph.remove_edge(e)
-            graph.remove_edge(e1)
-            graph.remove_node(in_array)
-            if in_array.data in sdfg.arrays:
-                del sdfg.arrays[in_array.data]
-            return
-        view_strides = in_desc.strides
-        if (b_dims_to_pop and len(b_dims_to_pop) == len(out_desc.shape) - len(in_desc.shape)):
-            view_strides = [s for i, s in enumerate(out_desc.strides) if i not in b_dims_to_pop]
-        sdfg.arrays[in_array.data] = data.ArrayView(in_desc.dtype, in_desc.shape, True, in_desc.allow_conflicts,
-                                                    out_desc.storage, out_desc.location, view_strides, in_desc.offset,
-                                                    out_desc.may_alias, dtypes.AllocationLifetime.Scope,
-                                                    in_desc.alignment, in_desc.debuginfo, in_desc.total_size)
-        in_array.add_out_connector('views', force=True)
-        e1._src_conn = 'views'
-
-
-    def _is_reshaping_memlet(
-            self,
-            graph: SDFGState,
-            edge: graph.MultiConnectorEdge,
-    ) -> bool:
-        """Test if Memlet between `input_node` and `output_node` is reshaping.
-
-        A "reshaping Memlet" is a Memlet that changes the shape of a data container,
-        in the same way as `numpy.reshape()` does.
-
-        :param graph: The graph (SDFGState) in which the connection is.
-        :param edge: The edge between them.
-        """
-        # Reshaping can not be a reduction
-        if edge.data.wcr or edge.data.wcr_nonatomic:
-            return False
-
-        # Reshaping needs to access nodes.
-        src_node = edge.src
-        dst_node = edge.dst
-        if not all(isinstance(node, nodes.AccessNode) for node in (src_node, dst_node)):
-            return False
-
-        # Reshaping can only happen between arrays.
-        sdfg = graph.sdfg
-        src_desc = sdfg.arrays[src_node.data]
-        dst_desc = sdfg.arrays[dst_node.data]
-        if not all(isinstance(desc, data.Array) and not isinstance(desc, data.View) for desc in (src_desc, dst_desc)):
-            return False
-
-        # Reshaping implies that the shape is different.
-        if dst_desc.shape == src_desc.shape:
-            return False
-
-        # A reshaping Memlet must read the whole source array and write the whole destination array.
-        src_subset, dst_subset = _validate_subsets(edge, sdfg.arrays)
-        for subset, shape in zip([dst_subset, src_subset], [dst_desc.shape, src_desc.shape]):
-            if not all(sssize == arraysize for sssize, arraysize in zip(subset.size(), shape)):
-                return False
-
-        return True
-
     def apply(self, graph: SDFGState, sdfg: SDFG):
         # The pattern is A ---> B, and we want to remove A
         A, B = self.in_array, self.out_array
@@ -516,30 +439,43 @@ class RedundantArray(pm.SingleStateTransformation):
         # And this should be self-evident.
         assert a_subset.volume_exact() == b_subset.volume_exact()
 
-        for e in graph.in_edges(A):
-            c_subset, a0_subset = _validate_subsets(e, sdfg.arrays)
-            # The pattern is now: C ---> A ---> B
+        for ie in graph.in_edges(A):
+            # The pattern is now: C -(ie)-> A ---> B
+            path = graph.memlet_tree(ie)
+            for pe in path:
+                # The pattern is now: C -(pe)-> C1 ---> ... ---> A ---> B
+                print('PE:', pe)
+                c_subset, a0_subset = _validate_subsets(pe, sdfg.arrays, dst_name=A.data)
 
-            # Other cases should have been handled already in `can_be_applied()`.
-            assert isinstance(c_subset, Range) or isinstance(c_subset, Indices)
-            assert isinstance(a0_subset, Range) or isinstance(a0_subset, Indices)
-            assert c_subset.volume_exact() == a0_subset.volume_exact()
-            assert a_subset.covers_precise(a0_subset)
-            assert all(b0 >= b and (b0 - b) % s == 0 and s0 % s == 0
-                       for (b, e, s), (b0, e0, s0) in zip(a_subset.ndrange(), a0_subset.ndrange()))
+                # Other cases should have been handled already in `can_be_applied()`.
+                assert c_subset is None or isinstance(c_subset, Range) or isinstance(c_subset, Indices)
+                if c_subset is not None:
+                    assert c_subset.volume_exact() == a0_subset.volume_exact()
+                assert isinstance(a0_subset, Range) or isinstance(a0_subset, Indices)
+                print('SUBS:', a_subset, a0_subset)
+                assert a_subset.dims() == a0_subset.dims()
+                # assert a_subset.covers_precise(a0_subset)
+                # assert all(b0 >= b and (b0 - b) % s == 0 and s0 % s == 0
+                #            for (b, e, s), (b0, e0, s0) in zip(a_subset.ndrange(), a0_subset.ndrange()))
 
-            # Find out where `a0_subset` maps to, given that `a_subset` precisely maps to `b_subset`.
-            # `reshapr` describes how `a_subset` maps to `b_subset`.
-            reshapr = Reshaper(a_subset, b_subset)
-            # `b0_subset` is the mapping for `a0_subset`.
-            b0_subset = reshapr.map(a0_subset)
-            assert isinstance(b0_subset, Range) or isinstance(b0_subset, Indices)
-            assert b0_subset.volume_exact() == a0_subset.volume_exact()
+                # Find out where `a0_subset` maps to, given that `a_subset` precisely maps to `b_subset`.
+                # `reshapr` describes how `a_subset` maps to `b_subset`.
+                reshapr = RangeRemapper(a_subset, b_subset)
+                # `b0_subset` is the mapping for `a0_subset`.
+                b0_subset = reshapr.map(a0_subset)
+                print(a_subset, b_subset)
+                print(a0_subset, b0_subset)
+                assert isinstance(b0_subset, Range) or isinstance(b0_subset, Indices)
+                assert b0_subset.volume_exact() == a0_subset.volume_exact()
 
-            # Now we can replace the path C ---> A ---> B with equivalent edge C ---> B
-            graph.add_edge(e.src, e.src_conn, B, None,
-                           memlet=Memlet(data=B.data, subset=b0_subset, other_subset=c_subset))
-            graph.remove_edge(e)
+                # Now we can replace the path: C -(pe)-> C1 ---> ... ---> A ---> B
+                # with an equivalent path: C -(pe)-> C1 ---> ... ---> B
+                dst, dst_conn = (B, None) if pe.dst == A else (pe.dst, pe.dst_conn)
+                print('dst:', pe.src, dst, dst_conn)
+                e = graph.add_edge(pe.src, pe.src_conn, dst, dst_conn,
+                                   memlet=Memlet(data=B.data, subset=b0_subset, other_subset=c_subset))
+                print(e)
+                graph.remove_edge(pe)
         graph.remove_node(A)
         sdfg.remove_data(A.data)
 
