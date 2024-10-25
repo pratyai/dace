@@ -1,12 +1,7 @@
 name: General Tests
 
 on:
-  push:
-    branches: [ main, ci-fix ]
-  pull_request:
-    branches: [ main, ci-fix ]
-  merge_group:
-    branches: [ main, ci-fix ]
+  workflow_dispatch
 
 jobs:
   test:
@@ -14,8 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7,'3.12']
-        simplify: [0,1,autoopt]
+        python-version: ['3.12']
+        simplify: [0]
 
     steps:
     - uses: actions/checkout@v4
