@@ -1,17 +1,23 @@
+import gc
 import os
 from collections.abc import Collection
 from copy import deepcopy
 from itertools import chain
+from typing import Optional
 from typing import Tuple, Sequence
 
 import numpy as np
 
 import dace
-from dace import SDFG, Memlet
+from dace import Memlet, StorageType
+from dace import SDFG, InstrumentationType, ScheduleType
+from dace.codegen.instrumentation import InstrumentationReport
 from dace.properties import CodeBlock
+from dace.sdfg.nodes import MapEntry
 from dace.sdfg.sdfg import InterstateEdge
 from dace.sdfg.state import SDFGState
 from dace.subsets import Range
+from dace.transformation.dataflow import MapTiling
 from dace.transformation.dataflow.const_assignment_fusion import ConstAssignmentMapFusion, ConstAssignmentStateFusion
 from dace.transformation.interstate import StateFusionExtended
 
@@ -505,6 +511,114 @@ def test_does_not_fuse_when_the_first_state_has_multiple_toplevel_maps():
 
     # Verify numerically.
     assert np.allclose(our_A, actual_A)
+
+
+def clean(g: SDFG) -> SDFG:
+    keep_data = set()
+    for n in g.data_nodes():
+        keep_data.add(n.data)
+    for n in list(g.arrays.keys()):
+        if n not in keep_data:
+            g.remove_data(n)
+    for k in ['ZSOLAC', 'ZLICLD', 'ZSOLAB', 'ZLFINALSUM', 'ZLCOND1', 'ZLCOND2', 'ZSUPSAT', 'ZICETOT',
+              'ZRAINAUT', 'ZRAINACC', 'ZLDEFR', 'ZACUST', 'ZQPRETOT']:
+        g.arrays[k].transient = False
+    for k in g.arrays.keys():
+        g.arrays[k].storage = StorageType.CPU_Heap
+    for st in g.states():
+        for n in st.nodes():
+            if not isinstance(n, MapEntry):
+                continue
+            n.map.schedule = ScheduleType.CPU_Multicore
+    return g
+
+
+def instrument(g: SDFG):
+    g.instrument = InstrumentationType.Timer
+    # for n, st in g.all_nodes_recursive():
+    #     if isinstance(n, MapEntry):
+    #         n.map.instrument = InstrumentationType.Timer
+    #         st.instrument = InstrumentationType.Timer
+    g.clear_instrumentation_reports()
+
+
+def produce_combined_instrumentation_report(g: SDFG, filename: Optional[str] = None) -> Optional[InstrumentationReport]:
+    all_ins = g.get_instrumentation_reports()
+    if not all_ins:
+        return None
+    ins = InstrumentationReport(filename='')
+    for i in all_ins:
+        ins.events.extend(deepcopy(i.events))
+    ins.process_events()
+    if filename:
+        ins.save(filename)
+    return ins
+
+
+def test_cloud():
+    KLON, KLEV, NCLV = 1000, 100, 100
+    NPROMA, _for_it_24 = KLON//2, KLEV
+    ZSOLAC, ZLICLD, ZSOLAB, ZLFINALSUM = np.ones(KLON), np.ones(KLON), np.ones(KLON), np.ones(KLON)
+    ZLCOND1, ZLCOND2, ZSUPSAT, ZICETOT = np.ones(KLON), np.ones(KLON), np.ones(KLON), np.ones(KLON)
+    ZRAINAUT, ZRAINACC, ZLDEFR, ZACUST = np.ones(KLON), np.ones(KLON), np.ones(KLON), np.ones(KLON)
+    ZQPRETOT = np.ones(KLON)
+
+    g = SDFG.from_file('/Users/pmz/Downloads/cloudsc-cpu-clipped.sdfg')
+    g = clean(g)
+    g.save('/Users/pmz/Downloads/cloudsc-cpu-clipped-cleaned.sdfg')
+    tilers = [n for n, st in g.all_nodes_recursive() if isinstance(n, MapEntry)]
+    for m in tilers:
+        # m.map.schedule = ScheduleType.CPU_Multicore
+        m.map.schedule = ScheduleType.Sequential
+        # om = MapTiling.apply_to(g, {"tile_sizes": [8]}, map_entry=m)
+        # om.map.schedule = ScheduleType.CPU_Multicore
+    # g.apply_gpu_transformations()
+    g.validate()
+    instrument(g)
+    g.compile()
+    g.save('/Users/pmz/Downloads/cloudsc-cpu-clipped-base.sdfg')
+    for i in range(10):
+        g(KLON=KLON, KLEV=KLEV, NCLV=NCLV, NPROMA=NPROMA, _for_it_24=_for_it_24, ZSOLAC=ZSOLAC, ZLICLD=ZLICLD,
+          ZSOLAB=ZSOLAB, ZLFINALSUM=ZLFINALSUM, ZLCOND1=ZLCOND1, ZLCOND2=ZLCOND2, ZSUPSAT=ZSUPSAT, ZICETOT=ZICETOT,
+          ZRAINAUT=ZRAINAUT, ZRAINACC=ZRAINACC, ZLDEFR=ZLDEFR, ZACUST=ZACUST, ZQPRETOT=ZQPRETOT)
+    g.clear_instrumentation_reports()
+    gc.disable()
+    for i in range(20):
+        g(KLON=KLON, KLEV=KLEV, NCLV=NCLV, NPROMA=NPROMA, _for_it_24=_for_it_24, ZSOLAC=ZSOLAC, ZLICLD=ZLICLD,
+          ZSOLAB=ZSOLAB, ZLFINALSUM=ZLFINALSUM, ZLCOND1=ZLCOND1, ZLCOND2=ZLCOND2, ZSUPSAT=ZSUPSAT, ZICETOT=ZICETOT,
+          ZRAINAUT=ZRAINAUT, ZRAINACC=ZRAINACC, ZLDEFR=ZLDEFR, ZACUST=ZACUST, ZQPRETOT=ZQPRETOT)
+    gc.enable()
+    print(produce_combined_instrumentation_report(g))
+    # g.simplify(verbose=True)
+    g = SDFG.from_file('/Users/pmz/Downloads/cloudsc-cpu-clipped-cleaned.sdfg')
+    count = g.apply_transformations_repeated(ConstAssignmentMapFusion,
+                                             print_report=True,
+                                             options={'use_grid_strided_loops': False})
+    # g.simplify(verbose=True)
+    print('count:', count)
+    tilers = [n for n, st in g.all_nodes_recursive() if isinstance(n, MapEntry)]
+    for m in tilers:
+        # m.map.schedule = ScheduleType.CPU_Multicore
+        m.map.schedule = ScheduleType.Sequential
+        # om = MapTiling.apply_to(g, {"tile_sizes": [8]}, map_entry=m)
+        # om.map.schedule = ScheduleType.CPU_Multicore
+    # g.apply_gpu_transformations()
+    g.validate()
+    instrument(g)
+    g.compile()
+    g.save('/Users/pmz/Downloads/cloudsc-cpu-clipped-const-fused.sdfg')
+    for i in range(10):
+        g(KLON=KLON, KLEV=KLEV, NCLV=NCLV, NPROMA=NPROMA, _for_it_24=_for_it_24, ZSOLAC=ZSOLAC, ZLICLD=ZLICLD,
+          ZSOLAB=ZSOLAB, ZLFINALSUM=ZLFINALSUM, ZLCOND1=ZLCOND1, ZLCOND2=ZLCOND2, ZSUPSAT=ZSUPSAT, ZICETOT=ZICETOT,
+          ZRAINAUT=ZRAINAUT, ZRAINACC=ZRAINACC, ZLDEFR=ZLDEFR, ZACUST=ZACUST, ZQPRETOT=ZQPRETOT)
+    g.clear_instrumentation_reports()
+    gc.disable()
+    for i in range(20):
+        g(KLON=KLON, KLEV=KLEV, NCLV=NCLV, NPROMA=NPROMA, _for_it_24=_for_it_24, ZSOLAC=ZSOLAC, ZLICLD=ZLICLD,
+          ZSOLAB=ZSOLAB, ZLFINALSUM=ZLFINALSUM, ZLCOND1=ZLCOND1, ZLCOND2=ZLCOND2, ZSUPSAT=ZSUPSAT, ZICETOT=ZICETOT,
+          ZRAINAUT=ZRAINAUT, ZRAINACC=ZRAINACC, ZLDEFR=ZLDEFR, ZACUST=ZACUST, ZQPRETOT=ZQPRETOT)
+    gc.enable()
+    print(produce_combined_instrumentation_report(g))
 
 
 if __name__ == '__main__':
