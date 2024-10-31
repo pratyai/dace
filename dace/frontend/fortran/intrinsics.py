@@ -196,6 +196,19 @@ class DirectReplacement(IntrinsicTransformation):
 
         return (ast_internal_classes.Int_Literal_Node(value=str(type_size)), "INTEGER")
 
+    def replace_kind(args: ast_internal_classes.Arg_List_Node, line, symbols: list):
+        if len(args.args) != 1:
+            return ValueError(f"`kind()` intrinsic takes only one argument, got {len(args.args)}")
+        arg = args.args[0]
+        if isinstance(arg, (ast_internal_classes.Bool_Literal_Node,
+                            ast_internal_classes.Int_Literal_Node,
+                            ast_internal_classes.Real_Literal_Node)):
+            return ast_internal_classes.Int_Literal_Node(value="4", line_number=line)
+        if isinstance(arg, ast_internal_classes.Double_Literal_Node):
+            return ast_internal_classes.Int_Literal_Node(value="8", line_number=line)
+        if isinstance(arg, ast_internal_classes.Char_Literal_Node):
+            return ast_internal_classes.Int_Literal_Node(value="1", line_number=line)
+        raise NotImplementedError()
 
     def replace_int_kind(args: ast_internal_classes.Arg_List_Node, line, symbols: list):
         if isinstance(args.args[0], ast_internal_classes.Int_Literal_Node):
@@ -259,6 +272,7 @@ class DirectReplacement(IntrinsicTransformation):
         return ast_internal_classes.Real_Literal_Node(value=str(ret_val))
 
     FUNCTIONS = {
+        "KIND": Replacement(replace_kind),
         "SELECTED_INT_KIND": Replacement(replace_int_kind),
         "SELECTED_REAL_KIND": Replacement(replace_real_kind),
         "EPSILON": Replacement(replacement_epsilon),
@@ -266,7 +280,7 @@ class DirectReplacement(IntrinsicTransformation):
         "SIZE": Transformation(replace_size),
         "LBOUND": Transformation(replace_lbound_ubound),
         "UBOUND": Transformation(replace_lbound_ubound),
-        "PRESENT": Transformation(replace_present)
+        "PRESENT": Transformation(replace_present),
     }
 
     @staticmethod
