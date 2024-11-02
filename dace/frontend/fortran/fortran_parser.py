@@ -4,10 +4,10 @@ import copy
 import os
 import warnings
 from copy import deepcopy as dpcp
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import networkx as nx
-from fparser.common.readfortran import FortranFileReader as ffr
+from fparser.common.readfortran import FortranFileReader as ffr, FortranReaderBase
 from fparser.common.readfortran import FortranStringReader as fsr
 from fparser.two.parser import ParserFactory as pf
 from fparser.two.symbol_table import SymbolTable
@@ -23,6 +23,7 @@ from dace import dtypes
 from dace import subsets as subs
 from dace import symbolic as sym
 from dace.data import Scalar, Structure
+from dace.frontend.fortran.ast_internal_classes import Program_Node
 from dace.frontend.fortran.intrinsics import IntrinsicSDFGTransformation
 from dace.properties import CodeBlock
 
@@ -2408,51 +2409,112 @@ def create_ast_from_string(source_string: str, transform: bool = False, normaliz
     :param source_string: The fortran file as a string
     :return: The resulting AST
     """
-    parser = pf().create(std="f2008")
-    reader = fsr(source_string)
-    ast = parser(reader)
-    tables = SymbolTable
-    own_ast = ast_components.InternalFortranAst(ast, tables)
-    program = own_ast.create_ast(ast)
-
-    structs_lister = ast_transforms.StructLister()
-    structs_lister.visit(program)
-    struct_dep_graph = nx.DiGraph()
-    for i, name in zip(structs_lister.structs, structs_lister.names):
-        if name not in struct_dep_graph.nodes:
-            struct_dep_graph.add_node(name)
-        struct_deps_finder = ast_transforms.StructDependencyLister(structs_lister.names)
-        struct_deps_finder.visit(i)
-        struct_deps = struct_deps_finder.structs_used
-        for j, pointing, point_name in zip(struct_deps, struct_deps_finder.is_pointer,
-                                           struct_deps_finder.pointer_names):
-            if j not in struct_dep_graph.nodes:
-                struct_dep_graph.add_node(j)
-            struct_dep_graph.add_edge(name, j, pointing=pointing, point_name=point_name)
-
-    program.structures = ast_transforms.Structures(structs_lister.structs)
-
-    functions_and_subroutines_builder = ast_transforms.FindFunctionAndSubroutines()
-    functions_and_subroutines_builder.visit(program)
-    functions_and_subroutines = functions_and_subroutines_builder.names
+    program, context = ConstructInternalAST.parse_source(fsr(source_string))
+    program = ConstructInternalAST.augment_with_structure_info(program)
 
     if transform:
+        program = ConstructInternalAST.apply_optional_transforms(program, context, normalize_offsets)
+
+    return program, context
+
+
+class ConstructInternalAST:
+    """
+    Wrapper class that provides static methods for constructing AST from various input formats of Fortran source-code.
+    """
+
+    @staticmethod
+    def parse_source(reader: FortranReaderBase) -> Tuple[Program_Node, ast_components.InternalFortranAst]:
+        """
+        Parse a Fortran source-code described by `reader` and returns a tuple of:
+        1. The internal AST described by its root node of `Program_Node` type.
+        2. An `InternalFortranAst` object that holds the contextual information extracted from the parse during
+        the internal AST construction.
+        """
+        parser = pf().create(std="f2008")
+        ast = parser(reader)
+        context = ast_components.InternalFortranAst()
+        program = context.create_ast(ast)
+        return program, context
+
+    @staticmethod
+    def augment_with_structure_info(program: Program_Node) -> Program_Node:
+        """
+        Attaches a table of all the structure nodes under the AST root `program` to the root node itself.
+        Returns the modified `program`.
+        """
+        structs_lister = ast_transforms.StructLister()
+        structs_lister.visit(program)
+        struct_dep_graph = nx.DiGraph()
+        for i, name in zip(structs_lister.structs, structs_lister.names):
+            if name not in struct_dep_graph.nodes:
+                struct_dep_graph.add_node(name)
+            struct_deps_finder = ast_transforms.StructDependencyLister(structs_lister.names)
+            struct_deps_finder.visit(i)
+            struct_deps = struct_deps_finder.structs_used
+            for j, pointing, point_name in zip(struct_deps, struct_deps_finder.is_pointer,
+                                               struct_deps_finder.pointer_names):
+                if j not in struct_dep_graph.nodes:
+                    struct_dep_graph.add_node(j)
+                struct_dep_graph.add_edge(name, j, pointing=pointing, point_name=point_name)
+
+        program.structures = ast_transforms.Structures(structs_lister.structs)
+        return program
+
+    @staticmethod
+    def apply_optional_transforms(program: Program_Node, context: ast_components.InternalFortranAst,
+                                  normalize_offsets: bool) -> Program_Node:
+        """
+        TODO: Why are these optional and not always applicable?
+        Apply a set of optional transformations to the AST under the root `program`:
+        1. Convert the array subscripted accesses to their appropriate nodes.
+        2. Replace complicated expressions in function calls with temporary variables.
+        3. Convert the `sign(a, b)` expressions into If statements.
+        4. Replace the (pointwise) array expressions of Fortrans with simple loops.
+        5. Replace Fortran intrinsics with corresponding DaCe constructs.
+        6. Ensure that each loop iterator is unique.
+        7. Replace complicated expressions in array indices with temporary variables.
+        8. Replace optional arguments to function calls with explicit default values.
+        """
         program = ast_transforms.functionStatementEliminator(program)
+
+        # Differentiate between function calls and array accesses, which are indistinguishable in a parse of Fortran
+        # source-code and are all described as function nodes. Convert the array subscripted accesses to their
+        # appropriate nodes.
+        functions_and_subroutines_builder = ast_transforms.FindFunctionAndSubroutines()
+        functions_and_subroutines_builder.visit(program)
         program = ast_transforms.CallToArray(functions_and_subroutines_builder).visit(program)
+
+        # Find any function call with an argument that is an expression that needs to be evaluated instead of just a
+        # simple variable. Replace that expression with a temporary variable which contains the result of the
+        # expression computed before the function itself is called.
         program = ast_transforms.CallExtractor().visit(program)
+
+        # Convert the `sign(a, b)` expressions into If statements.
         program = ast_transforms.SignToIf().visit(program)
+
+        # Replace the (pointwise) array expressions of Fortrans with simple loops.
         program = ast_transforms.ArrayToLoop(program).visit(program)
 
-        for transformation in own_ast.fortran_intrinsics().transformations():
+        # Replace Fortran intrinsics with corresponding DaCe constructs.
+        # TODO: Why is `SIGN` replaced by `FortranIntrinsics` when we are already cleaning them up with `SignToIf`?
+        for transformation in context.fortran_intrinsics().transformations():
             transformation.initialize(program)
             program = transformation.visit(program)
 
+        # Ensures that each loop iterator is unique.
         program = ast_transforms.ForDeclarer().visit(program)
+
+        # TODO: Can we put it right after `CallExtractor`? Why not?
+        # Find any array acess with an index that is an expression that needs to be evaluated instead of just a
+        # simple variable. Replace that expression with a temporary variable which contains the result of the
+        # expression computed before the array itself is accessed.
         program = ast_transforms.IndexExtractor(program, normalize_offsets).visit(program)
 
+        # Replace the function calls with implicit optional arguments with corresponding function calls where the
+        # optional arguments are explcitly given their default values.
         program = ast_transforms.optionalArgsExpander(program)
-
-    return (program, own_ast)
+        return program
 
 
 def create_sdfg_from_string(
