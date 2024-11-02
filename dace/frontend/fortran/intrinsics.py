@@ -1518,7 +1518,7 @@ class MathFunctions(IntrinsicTransformation):
     def replace(func_name: str) -> ast_internal_classes.FNode:
         return ast_internal_classes.Name_Node(name=f'__dace_{func_name}')
 
-    def has_transformation() -> bool:
+    def has_transformation(self) -> bool:
         return True
 
     @staticmethod

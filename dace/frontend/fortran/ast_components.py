@@ -1,18 +1,17 @@
 # Copyright 2019-2023 ETH Zurich and the DaCe authors. All rights reserved.
-from fparser.two import Fortran2008 as f08
+from typing import Any, List, Optional, Type, TypeVar, Union, overload, TYPE_CHECKING
+
 from fparser.two import Fortran2003 as f03
+from fparser.two import Fortran2008 as f08
 from fparser.two import symbol_table
 
-import copy
 from dace.frontend.fortran import ast_internal_classes
-from dace.frontend.fortran.ast_internal_classes import FNode, Name_Node
-from typing import Any, List, Optional, Tuple, Type, TypeVar, Union, overload, TYPE_CHECKING
-
+from dace.frontend.fortran.ast_internal_classes import Name_Node
 
 if TYPE_CHECKING:
     from dace.frontend.fortran.intrinsics import FortranIntrinsics
 
-#We rely on fparser to provide an initial AST and convert to a version that is more suitable for our purposes
+# We rely on fparser to provide an initial AST and convert to a version that is more suitable for our purposes
 
 # The following class is used to translate the fparser AST to our own AST of Fortran
 # the supported_fortran_types dictionary is used to determine which types are supported by our compiler
@@ -51,7 +50,7 @@ def get_child(node: Union[FASTNode, List[FASTNode]], child_type: Union[str, Type
 
     if len(children_of_type) == 1:
         return children_of_type[0]
-    #Temporary workaround to allow feature list to be generated
+    # Temporary workaround to allow feature list to be generated
     return None
     raise ValueError('Expected only one child of type {} but found {}'.format(child_type, children_of_type))
 
@@ -107,6 +106,7 @@ class InternalFortranAst:
     for each entry in the dictionary, the key is the name of the class in the fparser AST and the value
     is the name of the function that will be used to translate the fparser AST to our AST
     """
+
     def __init__(self, ast: FASTNode, tables: symbol_table.SymbolTable):
         """
         Initialization of the AST converter
@@ -115,9 +115,9 @@ class InternalFortranAst:
 
         """
         self.name_list = {}
-        self.to_parse_list= {}
+        self.to_parse_list = {}
         self.unsupported_fortran_syntax = {}
-        self.current_ast=None
+        self.current_ast = None
         self.functions_and_subroutines = []
         self.symbols = {}
         self.intrinsics_list = []
@@ -154,7 +154,6 @@ class InternalFortranAst:
             "Prefix": self.prefix_stmt,
             "End_Subroutine_Stmt": self.end_subroutine_stmt,
             "End_Function_Stmt": self.end_function_stmt,
-            "Rename": self.rename,
             "Module": self.module,
             "Module_Stmt": self.module_stmt,
             "End_Module_Stmt": self.end_module_stmt,
@@ -290,8 +289,8 @@ class InternalFortranAst:
             "End_Type_Stmt": self.end_type_stmt,
             "Data_Ref": self.data_ref,
             "Cycle_Stmt": self.cycle_stmt,
-            #"Component_Decl_List": self.component_decl_list,
-            #"Component_Decl": self.component_decl,
+            # "Component_Decl_List": self.component_decl_list,
+            # "Component_Decl": self.component_decl,
         }
         self.type_arbitrary_array_variable_count = 0
 
@@ -304,14 +303,13 @@ class InternalFortranAst:
 
     def data_pointer_object(self, node: FASTNode):
         children = self.create_children(node)
-        if node.children[1] =="%":
-            return ast_internal_classes.Data_Ref_Node(parent_ref=children[0], part_ref=children[2],type="VOID")
+        if node.children[1] == "%":
+            return ast_internal_classes.Data_Ref_Node(parent_ref=children[0], part_ref=children[2], type="VOID")
         else:
             raise NotImplementedError("Data pointer object not supported yet")
-                
 
     def add_name_list_for_module(self, module: str, name_list: List[str]):
-        self.name_list[module] = name_list        
+        self.name_list[module] = name_list
 
     def create_children(self, node: FASTNode):
         return [self.create_ast(child)
@@ -321,7 +319,7 @@ class InternalFortranAst:
 
     def cycle_stmt(self, node: FASTNode):
         line = get_line(node)
-        return ast_internal_classes.Continue_Node( line_number=line)
+        return ast_internal_classes.Continue_Node(line_number=line)
 
     def create_ast(self, node=None):
         """
@@ -334,22 +332,22 @@ class InternalFortranAst:
                 return [self.create_ast(child) for child in node]
 
             if type(node).__name__ in self.supported_fortran_syntax:
-                #print(type(node), type(node).__name__, type(node).__name__ in self.supported_fortran_syntax)
+                # print(type(node), type(node).__name__, type(node).__name__ in self.supported_fortran_syntax)
                 return self.supported_fortran_syntax[type(node).__name__](node)
             else:
-                if type(node).__name__=="Intrinsic_Name":
+                if type(node).__name__ == "Intrinsic_Name":
                     if node not in self.intrinsics_list:
                         self.intrinsics_list.append(node)
                 if self.unsupported_fortran_syntax.get(self.current_ast) is None:
                     self.unsupported_fortran_syntax[self.current_ast] = []
                 if type(node).__name__ not in self.unsupported_fortran_syntax[self.current_ast]:
-                    if type(node).__name__ not in self.unsupported_fortran_syntax[self.current_ast]: 
+                    if type(node).__name__ not in self.unsupported_fortran_syntax[self.current_ast]:
                         self.unsupported_fortran_syntax[self.current_ast].append(type(node).__name__)
                 for i in node.children:
                     self.create_ast(i)
                 print("Unsupported syntax: ", type(node).__name__, node.string)
                 return None
-            #except Exception as e:
+            # except Exception as e:
             #    print("Error in create_ast: ", e)
             #    return None
 
@@ -359,26 +357,26 @@ class InternalFortranAst:
         children = self.create_children(node)
         name = children[0]
         return ast_internal_classes.Suffix_Node(name=name)
-    
+
     def data_ref(self, node: FASTNode):
         children = self.create_children(node)
-        idx=len(children)-1
-        parent = children[idx-1]
+        idx = len(children) - 1
+        parent = children[idx - 1]
         part_ref = children[idx]
-        part_ref.isStructMember=True
-        #parent.isStructMember=True
-        idx=idx-1
-        current=ast_internal_classes.Data_Ref_Node(parent_ref=parent, part_ref=part_ref,type="VOID")
-        
-        while idx>0:
-            parent = children[idx-1]
-            current = ast_internal_classes.Data_Ref_Node(parent_ref=parent, part_ref=current,type="VOID")   
-            idx=idx-1
+        part_ref.isStructMember = True
+        # parent.isStructMember=True
+        idx = idx - 1
+        current = ast_internal_classes.Data_Ref_Node(parent_ref=parent, part_ref=part_ref, type="VOID")
+
+        while idx > 0:
+            parent = children[idx - 1]
+            current = ast_internal_classes.Data_Ref_Node(parent_ref=parent, part_ref=current, type="VOID")
+            idx = idx - 1
         return current
 
     def end_type_stmt(self, node: FASTNode):
         return None
-    
+
     def access_stmt(self, node: FASTNode):
         return None
 
@@ -388,22 +386,22 @@ class InternalFortranAst:
         component_part = get_child(children, ast_internal_classes.Component_Part_Node)
         from dace.frontend.fortran.ast_transforms import PartialRenameVar
         if component_part is not None:
-            component_part=PartialRenameVar(oldname="__f2dace_A", newname="__f2dace_SA").visit(component_part)
-            component_part=PartialRenameVar(oldname="__f2dace_OA", newname="__f2dace_SOA").visit(component_part)
-            new_placeholder={}
-            new_placeholder_offsets={}
-            for k,v in self.placeholders.items():
+            component_part = PartialRenameVar(oldname="__f2dace_A", newname="__f2dace_SA").visit(component_part)
+            component_part = PartialRenameVar(oldname="__f2dace_OA", newname="__f2dace_SOA").visit(component_part)
+            new_placeholder = {}
+            new_placeholder_offsets = {}
+            for k, v in self.placeholders.items():
                 if "__f2dace_A" in k:
-                    new_placeholder[k.replace("__f2dace_A","__f2dace_SA")]=self.placeholders[k]
+                    new_placeholder[k.replace("__f2dace_A", "__f2dace_SA")] = self.placeholders[k]
                 else:
-                    new_placeholder[k]=self.placeholders[k]
-            self.placeholders=new_placeholder            
-            for k,v in self.placeholders_offsets.items():
+                    new_placeholder[k] = self.placeholders[k]
+            self.placeholders = new_placeholder
+            for k, v in self.placeholders_offsets.items():
                 if "__f2dace_OA" in k:
-                    new_placeholder_offsets[k.replace("__f2dace_OA","__f2dace_SOA")]=self.placeholders_offsets[k]
+                    new_placeholder_offsets[k.replace("__f2dace_OA", "__f2dace_SOA")] = self.placeholders_offsets[k]
                 else:
-                    new_placeholder_offsets[k]=self.placeholders_offsets[k]
-            self.placeholders_offsets=new_placeholder_offsets            
+                    new_placeholder_offsets[k] = self.placeholders_offsets[k]
+            self.placeholders_offsets = new_placeholder_offsets
         return ast_internal_classes.Derived_Type_Def_Node(name=name, component_part=component_part)
 
     def derived_type_stmt(self, node: FASTNode):
@@ -431,11 +429,11 @@ class InternalFortranAst:
         return ast_internal_classes.Component_Decl_Node(name=name)
 
     def write_stmt(self, node: FASTNode):
-        children=[]
+        children = []
         if node.children[0] is not None:
             children = self.create_children(node.children[0])
         if node.children[1] is not None:
-            children = self.create_children(node.children[1])    
+            children = self.create_children(node.children[1])
         line = get_line(node)
         return ast_internal_classes.Write_Stmt_Node(args=children, line_number=line)
 
@@ -472,8 +470,7 @@ class InternalFortranAst:
         return ast_internal_classes.Program_Stmt_Node(name=name, line_number=node.item.span)
 
     def subroutine_subprogram(self, node: FASTNode):
-       
-        
+
         children = self.create_children(node)
 
         name = get_child(children, ast_internal_classes.Subroutine_Stmt_Node)
@@ -507,13 +504,13 @@ class InternalFortranAst:
     def only_list(self, node: FASTNode):
         children = self.create_children(node)
         names = [i for i in children if isinstance(i, ast_internal_classes.Name_Node)]
-        renames=[i for i in children if isinstance(i, ast_internal_classes.Rename_Node)]
-        return ast_internal_classes.Only_List_Node(names=names,renames=renames)
+        renames = [i for i in children if isinstance(i, ast_internal_classes.Rename_Node)]
+        return ast_internal_classes.Only_List_Node(names=names, renames=renames)
 
     def prefix_stmt(self, node: FASTNode):
         for i in node.children:
-                if i.string.lower()=="elemental":
-                    return ast_internal_classes.Prefix_Node(elemental=True)
+            if i.string.lower() == "elemental":
+                return ast_internal_classes.Prefix_Node(elemental=True)
         return ast_internal_classes.Prefix_Node(elemental=False)
 
     def function_subprogram(self, node: FASTNode):
@@ -522,7 +519,7 @@ class InternalFortranAst:
         name = get_child(children, ast_internal_classes.Function_Stmt_Node)
         specification_part = get_child(children, ast_internal_classes.Specification_Part_Node)
         execution_part = get_child(children, ast_internal_classes.Execution_Part_Node)
-        
+
         return_type = name.return_type
         return ast_internal_classes.Function_Subprogram_Node(
             name=name.name,
@@ -535,7 +532,7 @@ class InternalFortranAst:
             elemental=name.elemental,
         )
 
-    def function_stmt(self, node: FASTNode):    
+    def function_stmt(self, node: FASTNode):
         children = self.create_children(node)
         name = get_child(children, ast_internal_classes.Name_Node)
         args = get_child(children, ast_internal_classes.Arg_List_Node)
@@ -545,14 +542,15 @@ class InternalFortranAst:
         else:
             elemental = prefix.elemental
         ret = get_child(children, ast_internal_classes.Suffix_Node)
-        if args==None:
+        if args == None:
             ret_args = []
         else:
-            ret_args = args.args    
-        return ast_internal_classes.Function_Stmt_Node(name=name, args=ret_args,return_type=ret, line_number=node.item.span,ret=ret,elemental=elemental)
+            ret_args = args.args
+        return ast_internal_classes.Function_Stmt_Node(name=name, args=ret_args, return_type=ret,
+                                                       line_number=node.item.span, ret=ret, elemental=elemental)
 
     def subroutine_stmt(self, node: FASTNode):
-        #print(self.name_list)
+        # print(self.name_list)
         children = self.create_children(node)
         name = get_child(children, ast_internal_classes.Name_Node)
         args = get_child(children, ast_internal_classes.Arg_List_Node)
@@ -561,11 +559,12 @@ class InternalFortranAst:
             elemental = False
         else:
             elemental = prefix.elemental
-        if args==None:
+        if args == None:
             ret_args = []
         else:
             ret_args = args.args
-        return ast_internal_classes.Subroutine_Stmt_Node(name=name, args=ret_args, line_number=node.item.span,elemental=elemental)
+        return ast_internal_classes.Subroutine_Stmt_Node(name=name, args=ret_args, line_number=node.item.span,
+                                                         elemental=elemental)
 
     def ac_value_list(self, node: FASTNode):
         children = self.create_children(node)
@@ -574,11 +573,11 @@ class InternalFortranAst:
     def power_expr(self, node: FASTNode):
         children = self.create_children(node)
         line = get_line(node)
-        #child 0 is the base, child 2 is the exponent
-        #child 1 is "**"
+        # child 0 is the base, child 2 is the exponent
+        # child 1 is "**"
         return ast_internal_classes.Call_Expr_Node(name=ast_internal_classes.Name_Node(name="pow"),
                                                    args=[children[0], children[2]],
-                                                   line_number=line,type="REAL")
+                                                   line_number=line, type="REAL")
 
     def array_constructor(self, node: FASTNode):
         children = self.create_children(node)
@@ -614,24 +613,22 @@ class InternalFortranAst:
         line = get_line(node)
         name = get_child(children, ast_internal_classes.Type_Name_Node)
         args = get_child(children, ast_internal_classes.Component_Spec_List_Node)
-        if args==None:
+        if args == None:
             ret_args = []
         else:
-            ret_args = args.args   
-        return ast_internal_classes.Structure_Constructor_Node(name=name, args=ret_args, type=None,line_number=line)
+            ret_args = args.args
+        return ast_internal_classes.Structure_Constructor_Node(name=name, args=ret_args, type=None, line_number=line)
 
-          
     def intrinsic_function_reference(self, node: FASTNode):
         children = self.create_children(node)
         line = get_line(node)
         name = get_child(children, ast_internal_classes.Name_Node)
         args = get_child(children, ast_internal_classes.Arg_List_Node)
-        
-        if name is None:
-            return Name_Node(name="Error! "+node.children[0].string,type='VOID')
-        node = self.intrinsic_handler.replace_function_reference(name, args, line,self.symbols)
-        return node
 
+        if name is None:
+            return Name_Node(name="Error! " + node.children[0].string, type='VOID')
+        node = self.intrinsic_handler.replace_function_reference(name, args, line, self.symbols)
+        return node
 
     def end_subroutine_stmt(self, node: FASTNode):
         return node
@@ -641,14 +638,15 @@ class InternalFortranAst:
 
     def parenthesis_expr(self, node: FASTNode):
         children = self.create_children(node)
-        return ast_internal_classes.Parenthesis_Expr_Node(expr=children[1],type=children[1].type)
+        return ast_internal_classes.Parenthesis_Expr_Node(expr=children[1], type=children[1].type)
 
     def module_subprogram_part(self, node: FASTNode):
         children = self.create_children(node)
         function_definitions = [i for i in children if isinstance(i, ast_internal_classes.Function_Subprogram_Node)]
         subroutine_definitions = [i for i in children if isinstance(i, ast_internal_classes.Subroutine_Subprogram_Node)]
         return ast_internal_classes.Module_Subprogram_Part_Node(function_definitions=function_definitions,
-                                                                 subroutine_definitions=subroutine_definitions)
+                                                                subroutine_definitions=subroutine_definitions)
+
     def interface_block(self, node: FASTNode):
         children = self.create_children(node)
 
@@ -671,11 +669,11 @@ class InternalFortranAst:
         children = self.create_children(node)
 
         name = get_child(children, ast_internal_classes.Module_Stmt_Node)
-        module_subprogram_part=get_child(children, ast_internal_classes.Module_Subprogram_Part_Node)
+        module_subprogram_part = get_child(children, ast_internal_classes.Module_Subprogram_Part_Node)
         specification_part = get_child(children, ast_internal_classes.Specification_Part_Node)
 
         function_definitions = [i for i in children if isinstance(i, ast_internal_classes.Function_Subprogram_Node)]
-        
+
         subroutine_definitions = [i for i in children if isinstance(i, ast_internal_classes.Subroutine_Subprogram_Node)]
 
         interface_blocks = {}
@@ -712,8 +710,8 @@ class InternalFortranAst:
         name = get_child(children, ast_internal_classes.Name_Node)
         only_list = get_child(children, ast_internal_classes.Only_List_Node)
         if only_list is None:
-            return ast_internal_classes.Use_Stmt_Node(name=name.name,list=None, list_all=True)
-        return ast_internal_classes.Use_Stmt_Node(name=name.name, list=only_list.names,list_all=False)
+            return ast_internal_classes.Use_Stmt_Node(name=name.name, list=None, list_all=True)
+        return ast_internal_classes.Use_Stmt_Node(name=name.name, list=only_list.names, list_all=False)
 
     def implicit_part(self, node: FASTNode):
         return node
@@ -732,7 +730,7 @@ class InternalFortranAst:
         return node
 
     def declaration_type_spec(self, node: FASTNode):
-        #raise NotImplementedError("Declaration type spec is not supported yet")
+        # raise NotImplementedError("Declaration type spec is not supported yet")
         return node
 
     def assumed_shape_spec_list(self, node: FASTNode):
@@ -745,7 +743,7 @@ class InternalFortranAst:
         # handle size definition
         if len(dim_expr) == 1:
             dim_expr = dim_expr[0]
-            #now to add the dimension to the size list after processing it if necessary
+            # now to add the dimension to the size list after processing it if necessary
             size.append(self.create_ast(dim_expr))
             offset.append(1)
 
@@ -753,7 +751,7 @@ class InternalFortranAst:
         elif len(dim_expr) == 2:
             # extract offets
             if isinstance(dim_expr[0], f03.Int_Literal_Constant):
-                #raise TypeError("Array offsets must be constant expressions!")
+                # raise TypeError("Array offsets must be constant expressions!")
                 offset.append(int(dim_expr[0].tostr()))
             else:
                 expr = self.create_ast(dim_expr[0])
@@ -803,35 +801,34 @@ class InternalFortranAst:
                 raise NotImplementedError("Assumed array shape not supported yet if array name missing")
 
             sizes = []
-            offsets =[]
+            offsets = []
             for actual_array in processed_array_names:
 
                 size = []
                 offset = []
                 for i in range(dims_count):
-
                     name = f'__f2dace_A_{actual_array}_d_{i}_s_{self.type_arbitrary_array_variable_count}'
-                    offset_name= f'__f2dace_OA_{actual_array}_d_{i}_s_{self.type_arbitrary_array_variable_count}'
+                    offset_name = f'__f2dace_OA_{actual_array}_d_{i}_s_{self.type_arbitrary_array_variable_count}'
                     self.type_arbitrary_array_variable_count += 1
                     self.placeholders[name] = [actual_array, i, self.type_arbitrary_array_variable_count]
                     self.placeholders_offsets[name] = [actual_array, i, self.type_arbitrary_array_variable_count]
 
                     var = ast_internal_classes.Symbol_Decl_Node(name=name,
-                                                    type='INTEGER',
-                                                    alloc=False,
-                                                    sizes=None,
-                                                    offsets=None,
-                                                    init=None,
-                                                    kind=None,
-                                                    line_number=linenumber)
+                                                                type='INTEGER',
+                                                                alloc=False,
+                                                                sizes=None,
+                                                                offsets=None,
+                                                                init=None,
+                                                                kind=None,
+                                                                line_number=linenumber)
                     var2 = ast_internal_classes.Symbol_Decl_Node(name=offset_name,
-                                                    type='INTEGER',
-                                                    alloc=False,
-                                                    sizes=None,
-                                                    offsets=None,
-                                                    init=None,
-                                                    kind=None,
-                                                    line_number=linenumber)
+                                                                 type='INTEGER',
+                                                                 alloc=False,
+                                                                 sizes=None,
+                                                                 offsets=None,
+                                                                 init=None,
+                                                                 kind=None,
+                                                                 line_number=linenumber)
                     size.append(ast_internal_classes.Name_Node(name=name))
                     offset.append(ast_internal_classes.Name_Node(name=offset_name))
 
@@ -841,16 +838,16 @@ class InternalFortranAst:
                 sizes.append(size)
                 offsets.append(offset)
 
-            return sizes, vardecls ,offsets
+            return sizes, vardecls, offsets
         else:
-            return None, [] ,None
+            return None, [], None
 
     def type_declaration_stmt(self, node: FASTNode):
 
-        #decide if its a intrinsic variable type or a derived type
+        # decide if its a intrinsic variable type or a derived type
 
         type_of_node = get_child(node, [f03.Intrinsic_Type_Spec, f03.Declaration_Type_Spec])
-        #if node.children[2].children[0].children[0].string.lower() =="BOUNDARY_MISSVAL".lower():
+        # if node.children[2].children[0].children[0].string.lower() =="BOUNDARY_MISSVAL".lower():
         #    print("found boundary missval")
         if isinstance(type_of_node, f03.Intrinsic_Type_Spec):
             derived_type = False
@@ -858,7 +855,7 @@ class InternalFortranAst:
         elif isinstance(type_of_node, f03.Declaration_Type_Spec):
             if type_of_node.items[0].lower() == "class":
                 basetype = "CLASS"
-                
+
                 derived_type = False
             else:
                 derived_type = True
@@ -866,31 +863,31 @@ class InternalFortranAst:
         else:
             raise TypeError("Type of node must be either Intrinsic_Type_Spec or Declaration_Type_Spec")
         kind = None
-        size_later=False
+        size_later = False
         if len(type_of_node.items) >= 2:
             if type_of_node.items[1] is not None:
                 if not derived_type:
                     if basetype == "CLASS":
-                        kind="CLASS"
+                        kind = "CLASS"
                     elif basetype == "CHARACTER":
                         kind = type_of_node.items[1].items[1].string.lower()
-                        if kind=="*":
-                           size_later=True
+                        if kind == "*":
+                            size_later = True
                     else:
                         kind = type_of_node.items[1].items[1].string.lower()
                         if self.symbols[kind] is not None:
-                          if basetype == "REAL":
-                            while hasattr(self.symbols[kind], "name"):
-                                kind = self.symbols[kind].name
-                            if self.symbols[kind].value == "8":
-                                basetype = "REAL8"
-                          elif basetype == "INTEGER":
-                            if self.symbols[kind].value == "4":
-                                basetype = "INTEGER"
-                          else:
-                            raise TypeError("Derived type not supported")
-                   
-                #if derived_type:
+                            if basetype == "REAL":
+                                while hasattr(self.symbols[kind], "name"):
+                                    kind = self.symbols[kind].name
+                                if self.symbols[kind].value == "8":
+                                    basetype = "REAL8"
+                            elif basetype == "INTEGER":
+                                if self.symbols[kind].value == "4":
+                                    basetype = "INTEGER"
+                            else:
+                                raise TypeError("Derived type not supported")
+
+                # if derived_type:
                 #    raise TypeError("Derived type not supported")
         if not derived_type:
             testtype = self.types[basetype]
@@ -901,15 +898,14 @@ class InternalFortranAst:
         # get the names of the variables being defined
         names_list = get_child(node, ["Entity_Decl_List", "Component_Decl_List"])
 
-        #get the names out of the name list
+        # get the names out of the name list
         names = get_children(names_list, [f03.Entity_Decl, f03.Component_Decl])
 
-
-        #get the attributes of the variables being defined
+        # get the attributes of the variables being defined
         # alloc relates to whether it is statically (False) or dynamically (True) allocated
         # parameter means its a constant, so we should transform it into a symbol
         attributes = get_children(node, "Attr_Spec_List")
-        comp_attributes=get_children(node, "Component_Attr_Spec_List")
+        comp_attributes = get_children(node, "Component_Attr_Spec_List")
         if len(attributes) != 0 and len(comp_attributes) != 0:
             raise TypeError("Attributes must be either in Attr_Spec_List or Component_Attr_Spec_List not both")
 
@@ -919,7 +915,7 @@ class InternalFortranAst:
         attr_size = None
         attr_offset = None
         assumed_vardecls = []
-        for i in attributes+comp_attributes:
+        for i in attributes + comp_attributes:
 
             if i.string.lower() == "allocatable":
                 alloc = True
@@ -952,8 +948,9 @@ class InternalFortranAst:
                     attr_size = [attr_size] * len(names)
                     attr_offset = [attr_offset] * len(names)
                 else:
-                    attr_size, assumed_vardecls,attr_offset = self.assumed_array_shape(dimension_spec[0], names, node.item.span)
-                    
+                    attr_size, assumed_vardecls, attr_offset = self.assumed_array_shape(dimension_spec[0], names,
+                                                                                        node.item.span)
+
                     if attr_size is None:
                         raise RuntimeError("Couldn't parse the dimension attribute specification!")
 
@@ -971,7 +968,7 @@ class InternalFortranAst:
                 attr_size = []
                 attr_offset = []
                 sizes = get_child(dimension_spec[0], ["Explicit_Shape_Spec_List"])
-                #if sizes is None:
+                # if sizes is None:
                 #    sizes = get_child(dimension_spec[0], ["Deferred_Shape_Spec_List"])
 
                 if sizes is not None:
@@ -981,82 +978,83 @@ class InternalFortranAst:
                     attr_size = [attr_size] * len(names)
                     attr_offset = [attr_offset] * len(names)
                 else:
-                    attr_size, assumed_vardecls, attr_offset = self.assumed_array_shape(dimension_spec[0], names, node.item.span)
+                    attr_size, assumed_vardecls, attr_offset = self.assumed_array_shape(dimension_spec[0], names,
+                                                                                        node.item.span)
                     if attr_size is None:
                         raise RuntimeError("Couldn't parse the dimension attribute specification!")
 
         vardecls = [*assumed_vardecls]
 
         for idx, var in enumerate(names):
-            #print(self.name_list)
-            #first handle dimensions
+            # print(self.name_list)
+            # first handle dimensions
             size = None
             offset = None
             var_components = self.create_children(var)
             array_sizes = get_children(var, "Explicit_Shape_Spec_List")
             actual_name = get_child(var_components, ast_internal_classes.Name_Node)
-            #if actual_name.name not in self.name_list:
+            # if actual_name.name not in self.name_list:
             #    return
             if len(array_sizes) == 1:
                 array_sizes = array_sizes[0]
                 size = []
                 offset = []
                 for dim in array_sizes.children:
-                    #sanity check
+                    # sanity check
                     if isinstance(dim, f03.Explicit_Shape_Spec):
                         self.parse_shape_specification(dim, size, offset)
 
-            #handle initializiation
+            # handle initializiation
             init = None
 
             initialization = get_children(var, f03.Initialization)
             if len(initialization) == 1:
                 initialization = initialization[0]
-                #if there is an initialization, the actual expression is in the second child, with the first being the equals sign
+                # if there is an initialization, the actual expression is in the second child, with the first being the equals sign
                 if len(initialization.children) < 2:
                     raise ValueError("Initialization must have an expression")
                 raw_init = initialization.children[1]
                 init = self.create_ast(raw_init)
-            #if size_later:
+            # if size_later:
             #    size.append(len(init)) 
-            if testtype!="INTEGER": symbol=False    
+            if testtype != "INTEGER": symbol = False
             if symbol == False:
 
                 if attr_size is None:
 
                     if size is None:
 
-                        size, assumed_vardecls ,offset = self.assumed_array_shape(var, actual_name.name, node.item.span)
+                        size, assumed_vardecls, offset = self.assumed_array_shape(var, actual_name.name, node.item.span)
                         if size is None:
                             offset = None
                         else:
                             # only one array
                             size = size[0]
                             offset = offset[0]
-                            #offset = [1] * len(size)
+                            # offset = [1] * len(size)
                         vardecls.extend(assumed_vardecls)
 
                     vardecls.append(
                         ast_internal_classes.Var_Decl_Node(name=actual_name.name,
-                                                        type=testtype,
-                                                        alloc=alloc,
-                                                        sizes=size,
-                                                        offsets=offset,
-                                                        kind=kind,
-                                                        init=init,
-                                                        optional=optional,
-                                                        line_number=node.item.span))
+                                                           type=testtype,
+                                                           alloc=alloc,
+                                                           sizes=size,
+                                                           offsets=offset,
+                                                           kind=kind,
+                                                           init=init,
+                                                           optional=optional,
+                                                           line_number=node.item.span))
                 else:
                     vardecls.append(
                         ast_internal_classes.Var_Decl_Node(name=actual_name.name,
-                                                        type=testtype,
-                                                        alloc=alloc,
-                                                        sizes=attr_size[idx],
-                                                        offsets=attr_offset[idx],
-                                                        kind=kind,
-                                                        init=init,
-                                                        optional=optional,
-                                                        line_number=node.item.span))
+                                                           type=testtype,
+                                                           alloc=alloc,
+                                                           sizes=attr_size[idx],
+                                                           offsets=attr_offset[idx],
+                                                           kind=kind,
+                                                           init=init,
+                                                           optional=optional,
+                                                           line_number=node.item.span))
             else:
                 if size is None and attr_size is None:
                     self.symbols[actual_name.name] = init
@@ -1116,7 +1114,7 @@ class InternalFortranAst:
 
     def access_spec(self, node: FASTNode):
         print("access spec. Fix me")
-        #raise NotImplementedError("Access spec is not supported yet")
+        # raise NotImplementedError("Access spec is not supported yet")
         return node
 
     def allocatable_stmt(self, node: FASTNode):
@@ -1129,7 +1127,7 @@ class InternalFortranAst:
 
     def bind_stmt(self, node: FASTNode):
         print("bind stmt. Fix me")
-        #raise NotImplementedError("Bind stmt is not supported yet")
+        # raise NotImplementedError("Bind stmt is not supported yet")
         return node
 
     def common_stmt(self, node: FASTNode):
@@ -1138,7 +1136,7 @@ class InternalFortranAst:
 
     def data_stmt(self, node: FASTNode):
         print("data stmt! fix me!")
-        #raise NotImplementedError("Data stmt is not supported yet")
+        # raise NotImplementedError("Data stmt is not supported yet")
         return node
 
     def dimension_stmt(self, node: FASTNode):
@@ -1181,7 +1179,7 @@ class InternalFortranAst:
         return node
 
     def execution_part(self, node: FASTNode):
-        children =[child for child in self.create_children(node) if child is not None]
+        children = [child for child in self.create_children(node) if child is not None]
         return ast_internal_classes.Execution_Part_Node(execution=children)
 
     def execution_part_construct(self, node: FASTNode):
@@ -1193,24 +1191,29 @@ class InternalFortranAst:
     def level_2_expr(self, node: FASTNode):
         children = self.create_children(node)
         line = get_line(node)
-        if children[1]=="==": type="LOGICAL"
-        else: 
-            type="VOID"
-            if hasattr(children[0],"type"):
-                type=children[0].type   
-        if len(children) == 3:
-            return ast_internal_classes.BinOp_Node(lval=children[0], op=children[1], rval=children[2], line_number=line, type=type)
+        if children[1] == "==":
+            type = "LOGICAL"
         else:
-            return ast_internal_classes.UnOp_Node(lval=children[1], op=children[0], line_number=line,type=children[1].type)
+            type = "VOID"
+            if hasattr(children[0], "type"):
+                type = children[0].type
+        if len(children) == 3:
+            return ast_internal_classes.BinOp_Node(lval=children[0], op=children[1], rval=children[2], line_number=line,
+                                                   type=type)
+        else:
+            return ast_internal_classes.UnOp_Node(lval=children[1], op=children[0], line_number=line,
+                                                  type=children[1].type)
 
     def assignment_stmt(self, node: FASTNode):
         children = self.create_children(node)
         line = get_line(node)
 
         if len(children) == 3:
-            return ast_internal_classes.BinOp_Node(lval=children[0], op=children[1], rval=children[2], line_number=line,type=children[0].type)
+            return ast_internal_classes.BinOp_Node(lval=children[0], op=children[1], rval=children[2], line_number=line,
+                                                   type=children[0].type)
         else:
-            return ast_internal_classes.UnOp_Node(lval=children[1], op=children[0], line_number=line,type=children[1].type)
+            return ast_internal_classes.UnOp_Node(lval=children[1], op=children[0], line_number=line,
+                                                  type=children[1].type)
 
     def pointer_assignment_stmt(self, node: FASTNode):
         children = self.create_children(node)
@@ -1263,8 +1266,8 @@ class InternalFortranAst:
         line = get_line(node)
         cond = children[0]
         body = children[1:]
-        #!THIS IS HACK
-        body= [i for i in body if i is not None]
+        # !THIS IS HACK
+        body = [i for i in body if i is not None]
         return ast_internal_classes.If_Stmt_Node(cond=cond,
                                                  body=ast_internal_classes.Execution_Part_Node(execution=body),
                                                  body_else=ast_internal_classes.Execution_Part_Node(execution=[]),
@@ -1297,7 +1300,7 @@ class InternalFortranAst:
             if else_mode:
                 body_else.append(i)
             else:
-                
+
                 body.append(i)
         currentIf.body = ast_internal_classes.Execution_Part_Node(execution=body)
         currentIf.body_else = ast_internal_classes.Execution_Part_Node(execution=body_else)
@@ -1343,11 +1346,11 @@ class InternalFortranAst:
         children = self.create_children(node)
         loop_control = get_child(children, ast_internal_classes.Loop_Control_Node)
         if loop_control is None:
-            if node.string=="DO":
-                return ast_internal_classes.While_True_Control(name=node.item.name,line_number=node.item.span)
+            if node.string == "DO":
+                return ast_internal_classes.While_True_Control(name=node.item.name, line_number=node.item.span)
             else:
-                while_control=get_child(children,ast_internal_classes.While_Control)
-                return ast_internal_classes.While_Control(cond=while_control.cond,line_number=node.item.span)
+                while_control = get_child(children, ast_internal_classes.While_Control)
+                return ast_internal_classes.While_Control(cond=while_control.cond, line_number=node.item.span)
         return ast_internal_classes.Nonlabel_Do_Stmt_Node(iter=loop_control.iter,
                                                           cond=loop_control.cond,
                                                           init=loop_control.init,
@@ -1397,14 +1400,14 @@ class InternalFortranAst:
         children = self.create_children(node)
         name = get_child(children, ast_internal_classes.Name_Node)
         args = get_child(children, ast_internal_classes.Arg_List_Node)
-        if args==None:
+        if args == None:
             ret_args = []
         else:
-            ret_args = args.args  
-        line_number = get_line(node)     
-        #if node.item is None:
+            ret_args = args.args
+        line_number = get_line(node)
+        # if node.item is None:
         #    line_number = 42
-        #else:
+        # else:
         #    line_number = node.item.span     
         return ast_internal_classes.Call_Expr_Node(name=name, args=ret_args, type="VOID", line_number=line_number)
 
@@ -1439,9 +1442,9 @@ class InternalFortranAst:
 
     def loop_control(self, node: FASTNode):
         children = self.create_children(node)
-        #Structure of loop control is:
+        # Structure of loop control is:
         if children[1] is None:
-            return ast_internal_classes.While_Control(cond=children[0],line_number=node.parent.item.span)
+            return ast_internal_classes.While_Control(cond=children[0], line_number=node.parent.item.span)
         # child[1]. Loop control variable
         # child[1][0] Loop start
         # child[1][1] Loop end
@@ -1452,41 +1455,46 @@ class InternalFortranAst:
             loop_step = children[1][1][2]
         else:
             loop_step = ast_internal_classes.Int_Literal_Node(value="1")
-        init_expr = ast_internal_classes.BinOp_Node(lval=iteration_variable, op="=", rval=loop_start,type="INTEGER")
+        init_expr = ast_internal_classes.BinOp_Node(lval=iteration_variable, op="=", rval=loop_start, type="INTEGER")
         if isinstance(loop_step, ast_internal_classes.UnOp_Node):
             if loop_step.op == "-":
-                cond_expr = ast_internal_classes.BinOp_Node(lval=iteration_variable, op=">=", rval=loop_end,type="INTEGER")
+                cond_expr = ast_internal_classes.BinOp_Node(lval=iteration_variable, op=">=", rval=loop_end,
+                                                            type="INTEGER")
         else:
-            cond_expr = ast_internal_classes.BinOp_Node(lval=iteration_variable, op="<=", rval=loop_end,type="INTEGER")
+            cond_expr = ast_internal_classes.BinOp_Node(lval=iteration_variable, op="<=", rval=loop_end, type="INTEGER")
         iter_expr = ast_internal_classes.BinOp_Node(lval=iteration_variable,
                                                     op="=",
                                                     rval=ast_internal_classes.BinOp_Node(lval=iteration_variable,
                                                                                          op="+",
-                                                                                         rval=loop_step,type="INTEGER"),type="INTEGER")
+                                                                                         rval=loop_step,
+                                                                                         type="INTEGER"),
+                                                    type="INTEGER")
         return ast_internal_classes.Loop_Control_Node(init=init_expr, cond=cond_expr, iter=iter_expr)
 
     def block_nonlabel_do_construct(self, node: FASTNode):
         children = self.create_children(node)
         do = get_child(children, ast_internal_classes.Nonlabel_Do_Stmt_Node)
         body = children[1:-1]
-        body= [i for i in body if i is not None]
+        body = [i for i in body if i is not None]
         if do is None:
-            while_true_header=get_child(children, ast_internal_classes.While_True_Control)
+            while_true_header = get_child(children, ast_internal_classes.While_True_Control)
             if while_true_header is not None:
-                return ast_internal_classes.While_Stmt_Node(name=while_true_header.name,body=ast_internal_classes.Execution_Part_Node(execution=body),
-                                                  line_number=while_true_header.line_number)
-            while_header=get_child(children, ast_internal_classes.While_Control)
+                return ast_internal_classes.While_Stmt_Node(name=while_true_header.name,
+                                                            body=ast_internal_classes.Execution_Part_Node(
+                                                                execution=body),
+                                                            line_number=while_true_header.line_number)
+            while_header = get_child(children, ast_internal_classes.While_Control)
             if while_header is not None:
-                return ast_internal_classes.While_Stmt_Node(cond=while_header.cond,body=ast_internal_classes.Execution_Part_Node(execution=body),
-                                                  line_number=while_header.line_number)
+                return ast_internal_classes.While_Stmt_Node(cond=while_header.cond,
+                                                            body=ast_internal_classes.Execution_Part_Node(
+                                                                execution=body),
+                                                            line_number=while_header.line_number)
         return ast_internal_classes.For_Stmt_Node(init=do.init,
                                                   cond=do.cond,
                                                   iter=do.iter,
                                                   body=ast_internal_classes.Execution_Part_Node(execution=body),
                                                   line_number=do.line_number)
 
-  
-    
     def subscript_triplet(self, node: FASTNode):
         if node.string == ":":
             return ast_internal_classes.ParDecl_Node(type="ALL")
@@ -1498,17 +1506,17 @@ class InternalFortranAst:
         return ast_internal_classes.Section_Subscript_List_Node(list=children)
 
     def specification_part(self, node: FASTNode):
-    
-        #TODO this can be refactored to consider more fortran declaration options. Currently limited to what is encountered in code.
+
+        # TODO this can be refactored to consider more fortran declaration options. Currently limited to what is encountered in code.
         others = [self.create_ast(i) for i in node.children if not isinstance(i, f08.Type_Declaration_Stmt)]
 
         decls = [self.create_ast(i) for i in node.children if isinstance(i, f08.Type_Declaration_Stmt)]
-        #decls = list(filter(lambda x: x is not None, decls))
+        # decls = list(filter(lambda x: x is not None, decls))
         uses = [self.create_ast(i) for i in node.children if isinstance(i, f03.Use_Stmt)]
         tmp = [self.create_ast(i) for i in node.children]
         typedecls = [
             i for i in tmp if isinstance(i, ast_internal_classes.Type_Decl_Node)
-            or isinstance(i, ast_internal_classes.Derived_Type_Def_Node)
+                              or isinstance(i, ast_internal_classes.Derived_Type_Def_Node)
         ]
         symbols = []
         iblocks = []
@@ -1532,7 +1540,7 @@ class InternalFortranAst:
             for i in decls:
                 names_filtered.extend(ii.name for ii in i.vardecl if j.name == ii.name)
         decl_filtered = []
-        
+
         for i in decls:
             if i is None:
                 continue
@@ -1554,14 +1562,14 @@ class InternalFortranAst:
         return node
 
     def int_literal_constant(self, node: FASTNode):
-        value=node.string
-        if value.find("_")!=-1:
-            x=value.split("_")
-            value=x[0]
-        return ast_internal_classes.Int_Literal_Node(value=value,type="INTEGER")
-    
+        value = node.string
+        if value.find("_") != -1:
+            x = value.split("_")
+            value = x[0]
+        return ast_internal_classes.Int_Literal_Node(value=value, type="INTEGER")
+
     def hex_constant(self, node: FASTNode):
-        return ast_internal_classes.Int_Literal_Node(value=str(int(node.string[2:-1],16)),type="INTEGER")
+        return ast_internal_classes.Int_Literal_Node(value=str(int(node.string[2:-1], 16)), type="INTEGER")
 
     def logical_literal_constant(self, node: FASTNode):
         if node.string in [".TRUE.", ".true.", ".True."]:
@@ -1571,27 +1579,26 @@ class InternalFortranAst:
         raise ValueError("Unknown logical literal constant")
 
     def real_literal_constant(self, node: FASTNode):
-        value=node.children[0].lower()
-        if len(node.children) == 2 and node.children[1] is not None and node.children[1].lower()=="wp":
-            return ast_internal_classes.Double_Literal_Node(value=value,type="DOUBLE")
-        if value.find("_")!=-1:
-            x=value.split("_")
-            value=x[0]
+        value = node.children[0].lower()
+        if len(node.children) == 2 and node.children[1] is not None and node.children[1].lower() == "wp":
+            return ast_internal_classes.Double_Literal_Node(value=value, type="DOUBLE")
+        if value.find("_") != -1:
+            x = value.split("_")
+            value = x[0]
             print(x[1])
-            if (x[1]=="wp"):
-                return ast_internal_classes.Double_Literal_Node(value=value,type="DOUBLE")
-        return ast_internal_classes.Real_Literal_Node(value=value,type="REAL")
-        
-    
+            if (x[1] == "wp"):
+                return ast_internal_classes.Double_Literal_Node(value=value, type="DOUBLE")
+        return ast_internal_classes.Real_Literal_Node(value=value, type="REAL")
+
     def char_literal_constant(self, node: FASTNode):
-        return ast_internal_classes.Char_Literal_Node(value=node.string,type="CHAR")
+        return ast_internal_classes.Char_Literal_Node(value=node.string, type="CHAR")
 
     def actual_arg_spec(self, node: FASTNode):
         children = self.create_children(node)
         if len(children) != 2:
             raise ValueError("Actual arg spec must have two children")
-        return ast_internal_classes.Actual_Arg_Spec_Node(arg_name=children[0], arg=children[1],type="VOID")
-    
+        return ast_internal_classes.Actual_Arg_Spec_Node(arg_name=children[0], arg=children[1], type="VOID")
+
     def actual_arg_spec_list(self, node: FASTNode):
         children = self.create_children(node)
         return ast_internal_classes.Arg_List_Node(args=children)
@@ -1600,11 +1607,11 @@ class InternalFortranAst:
         return node
 
     def name(self, node: FASTNode):
-        return ast_internal_classes.Name_Node(name=node.string.lower(),type="VOID")
-    
-    
+        return ast_internal_classes.Name_Node(name=node.string.lower(), type="VOID")
+
     def rename(self, node: FASTNode):
-        return ast_internal_classes.Rename_Node(oldname=node.children[2].string.lower(),newname=node.children[1].string.lower())
+        return ast_internal_classes.Rename_Node(oldname=node.children[2].string.lower(),
+                                                newname=node.children[1].string.lower())
 
     def type_name(self, node: FASTNode):
         return ast_internal_classes.Type_Name_Node(name=node.string.lower())
