@@ -2410,7 +2410,10 @@ def create_ast_from_string(source_string: str, transform: bool = False, normaliz
     :return: The resulting AST
     """
     program, context = ConstructInternalAST.parse_source(fsr(source_string))
-    program = ConstructInternalAST.augment_with_structure_info(program)
+
+    # Augment `program` with structure info.
+    structs, _ = ConstructInternalAST.get_structure_info(program)
+    program.structures = ast_transforms.Structures(structs)
 
     if transform:
         program = ConstructInternalAST.apply_optional_transforms(program, context, normalize_offsets)
@@ -2438,7 +2441,7 @@ class ConstructInternalAST:
         return program, context
 
     @staticmethod
-    def augment_with_structure_info(program: Program_Node) -> Program_Node:
+    def get_structure_info(program: Program_Node) -> Tuple[List, nx.DiGraph]:
         """
         Attaches a table of all the structure nodes under the AST root `program` to the root node itself.
         Returns the modified `program`.
@@ -2458,8 +2461,7 @@ class ConstructInternalAST:
                     struct_dep_graph.add_node(j)
                 struct_dep_graph.add_edge(name, j, pointing=pointing, point_name=point_name)
 
-        program.structures = ast_transforms.Structures(structs_lister.structs)
-        return program
+        return structs_lister.structs, struct_dep_graph
 
     @staticmethod
     def apply_optional_transforms(program: Program_Node, context: ast_components.InternalFortranAst,
@@ -2763,24 +2765,9 @@ def create_sdfg_from_string(
     # The actual structure listing is repeated later to resolve cycles.
     # Not sure if we can actually do it earlier.
 
-    structs_lister = ast_transforms.StructLister()
-    structs_lister.visit(program)
-    struct_dep_graph = nx.DiGraph()
-    for i, name in zip(structs_lister.structs, structs_lister.names):
-        if name not in struct_dep_graph.nodes:
-            struct_dep_graph.add_node(name)
-        struct_deps_finder = ast_transforms.StructDependencyLister(structs_lister.names)
-        struct_deps_finder.visit(i)
-        struct_deps = struct_deps_finder.structs_used
-        # print(struct_deps)
-        for j, pointing, point_name in zip(struct_deps, struct_deps_finder.is_pointer,
-                                           struct_deps_finder.pointer_names):
-            if j not in struct_dep_graph.nodes:
-                struct_dep_graph.add_node(j)
-            struct_dep_graph.add_edge(name, j, pointing=pointing, point_name=point_name)
-
-    program.structures = ast_transforms.Structures(structs_lister.structs)
-    own_ast.structures = ast_transforms.Structures(structs_lister.structs)
+    structs, _ = ConstructInternalAST.get_structure_info(program)
+    program.structures = ast_transforms.Structures(structs)
+    own_ast.structures = ast_transforms.Structures(structs)
 
     program.placeholders = own_ast.placeholders
     program.placeholders_offsets = own_ast.placeholders_offsets
@@ -2788,6 +2775,7 @@ def create_sdfg_from_string(
     functions_and_subroutines_builder.visit(program)
     own_ast.functions_and_subroutines = functions_and_subroutines_builder.names
     own_ast.iblocks = functions_and_subroutines_builder.iblocks
+
     program = ast_transforms.functionStatementEliminator(program)
     program = ast_transforms.StructConstructorToFunctionCall(functions_and_subroutines_builder.names).visit(program)
     program = ast_transforms.CallToArray(functions_and_subroutines_builder).visit(program)
@@ -2828,29 +2816,16 @@ def create_sdfg_from_string(
     program = ast_transforms.ForDeclarer().visit(program)
     program = ast_transforms.IndexExtractor(program, normalize_offsets).visit(program)
     program = ast_transforms.optionalArgsExpander(program)
-    structs_lister = ast_transforms.StructLister()
-    structs_lister.visit(program)
-    struct_dep_graph = nx.DiGraph()
-    for i, name in zip(structs_lister.structs, structs_lister.names):
-        if name not in struct_dep_graph.nodes:
-            struct_dep_graph.add_node(name)
-        struct_deps_finder = ast_transforms.StructDependencyLister(structs_lister.names)
-        struct_deps_finder.visit(i)
-        struct_deps = struct_deps_finder.structs_used
-        # print(struct_deps)
-        for j, pointing, point_name in zip(struct_deps, struct_deps_finder.is_pointer,
-                                           struct_deps_finder.pointer_names):
-            if j not in struct_dep_graph.nodes:
-                struct_dep_graph.add_node(j)
-            struct_dep_graph.add_edge(name, j, pointing=pointing, point_name=point_name)
-    cycles = nx.algorithms.cycles.simple_cycles(struct_dep_graph)
+
+    structs, struct_deps = ConstructInternalAST.get_structure_info(program)
+    cycles = nx.algorithms.cycles.simple_cycles(struct_deps)
     has_cycles = list(cycles)
     cycles_we_cannot_ignore = []
     for cycle in has_cycles:
         print(cycle)
         for i in cycle:
-            is_pointer = struct_dep_graph.get_edge_data(i, cycle[(cycle.index(i) + 1) % len(cycle)])["pointing"]
-            point_name = struct_dep_graph.get_edge_data(i, cycle[(cycle.index(i) + 1) % len(cycle)])["point_name"]
+            is_pointer = struct_deps.get_edge_data(i, cycle[(cycle.index(i) + 1) % len(cycle)])["pointing"]
+            point_name = struct_deps.get_edge_data(i, cycle[(cycle.index(i) + 1) % len(cycle)])["point_name"]
             # print(i,is_pointer)
             if is_pointer:
                 actually_used_pointer_node_finder = ast_transforms.StructPointerChecker(i, cycle[
