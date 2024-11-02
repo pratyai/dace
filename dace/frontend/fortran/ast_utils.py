@@ -737,32 +737,6 @@ class ModuleMap(dict):
         return super().__setitem__(k, v)
 
 
-class UseModuleLister:
-    def __init__(self):
-        self.list_of_modules = []
-        self.objects_in_use = {}
-
-    def get_used_modules(self, node):
-        if node is None:
-            return
-        if not hasattr(node, "children"):
-            return
-        for i in node.children:
-            if i.__class__.__name__ == "Use_Stmt":
-                if i.children[0] is not None:
-                    if i.children[0].string.lower() == "intrinsic":
-                        continue
-                for j in i.children:
-                    if j.__class__.__name__ == "Name":
-                        self.list_of_modules.append(j.string)
-                        for k in i.children:
-                            if k.__class__.__name__ == "Only_List":
-                                self.objects_in_use[j.string] = k
-
-            else:
-                self.get_used_modules(i)
-
-
 class FunctionSubroutineLister:
     def __init__(self):
         self.list_of_functions = []
