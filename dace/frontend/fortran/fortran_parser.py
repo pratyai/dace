@@ -2535,21 +2535,10 @@ def create_sdfg_from_string(
     reader = fsr(source_string)
     ast = parser(reader)
 
-    exclude_list = []
-    missing_modules = []
     dep_graph = nx.DiGraph()
     asts = {}
-    actually_used_in_module = {}
     interface_blocks = {}
-    ast = recursive_ast_improver(ast,
-                                 sources,
-                                 [],
-                                 parser,
-                                 interface_blocks,
-                                 exclude_list=exclude_list,
-                                 missing_modules=missing_modules,
-                                 dep_graph=dep_graph,
-                                 asts=asts)
+    ast = recursive_ast_improver(ast, sources, [], parser, interface_blocks, [], [], dep_graph, asts)
 
     for mod, blocks in interface_blocks.items():
 
@@ -2944,10 +2933,10 @@ def recursive_ast_improver(ast,
                            include_list,
                            parser,
                            interface_blocks,
-                           exclude_list=[],
-                           missing_modules=[],
-                           dep_graph=nx.DiGraph(),
-                           asts={}):
+                           exclude_list,
+                           missing_modules,
+                           dep_graph,
+                           asts):
     dfl = ast_utils.DefModuleLister()
     dfl.get_defined_modules(ast)
     defined_modules = dfl.list_of_modules
@@ -3027,15 +3016,8 @@ def recursive_ast_improver(ast,
             next_reader = ffr(file_candidate=next_file, include_dirs=include_list, source_only=source_list)
             next_ast = parser(next_reader)
 
-        next_ast = recursive_ast_improver(next_ast,
-                                          source_list,
-                                          include_list,
-                                          parser,
-                                          exclude_list=exclude_list,
-                                          missing_modules=missing_modules,
-                                          interface_blocks=interface_blocks,
-                                          dep_graph=dep_graph,
-                                          asts=asts)
+        next_ast = recursive_ast_improver(next_ast, source_list, include_list, parser, interface_blocks, exclude_list,
+                                          missing_modules, dep_graph, asts)
         for mod in next_ast.children:
             added_modules.append(mod)
             if mod.children[0].children[1].string not in exclude_list:
@@ -3059,21 +3041,11 @@ def create_sdfg_from_fortran_file_with_options(source_string: str, source_list, 
     parser = pf().create(std="f2008")
     reader = ffr(file_candidate=source_string, include_dirs=include_list, source_only=source_list)
     ast = parser(reader)
-    exclude_list = []
-    missing_modules = []
+
     dep_graph = nx.DiGraph()
     asts = {}
-    actually_used_in_module = {}
     interface_blocks = {}
-    ast = recursive_ast_improver(ast,
-                                 source_list,
-                                 include_list,
-                                 parser,
-                                 interface_blocks,
-                                 exclude_list=exclude_list,
-                                 missing_modules=missing_modules,
-                                 dep_graph=dep_graph,
-                                 asts=asts)
+    ast = recursive_ast_improver(ast, source_list, include_list, parser, interface_blocks, [], [], dep_graph, asts)
 
     for mod, blocks in interface_blocks.items():
 
