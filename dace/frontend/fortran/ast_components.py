@@ -107,12 +107,9 @@ class InternalFortranAst:
     is the name of the function that will be used to translate the fparser AST to our AST
     """
 
-    def __init__(self, ast: FASTNode, tables: symbol_table.SymbolTable):
+    def __init__(self):
         """
         Initialization of the AST converter
-        :param ast: the fparser AST
-        :param tables: the symbol table of the fparser AST
-
         """
         self.name_list = {}
         self.to_parse_list = {}

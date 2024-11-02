@@ -2729,7 +2729,7 @@ def create_sdfg_from_string(
             name_dict[i] = names
 
     tables = SymbolTable
-    own_ast = ast_components.InternalFortranAst(ast, tables)
+    own_ast = ast_components.InternalFortranAst()
     functions_to_rename = {}
     for i in parse_order:
         own_ast.current_ast = i
@@ -2903,7 +2903,7 @@ def create_sdfg_from_fortran_file(source_string: str):
     reader = ffr(source_string)
     ast = parser(reader)
     tables = SymbolTable
-    own_ast = ast_components.InternalFortranAst(ast, tables)
+    own_ast = ast_components.InternalFortranAst()
     program = own_ast.create_ast(ast)
     functions_and_subroutines_builder = ast_transforms.FindFunctionAndSubroutines()
     functions_and_subroutines_builder.visit(program)
@@ -3285,7 +3285,7 @@ def create_sdfg_from_fortran_file_with_options(source_string: str, source_list, 
     #                         changes=True
 
     tables = SymbolTable
-    partial_ast = ast_components.InternalFortranAst(top_level_ast, tables)
+    partial_ast = ast_components.InternalFortranAst()
     partial_modules = {}
     partial_ast.symbols["c_int"] = ast_internal_classes.Int_Literal_Node(value=4)
     partial_ast.symbols["c_int8_t"] = ast_internal_classes.Int_Literal_Node(value=1)
