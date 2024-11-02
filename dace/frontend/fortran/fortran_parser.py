@@ -2416,6 +2416,7 @@ def create_ast_from_string(source_string: str, transform: bool = False, normaliz
     program.structures = ast_transforms.Structures(structs)
 
     if transform:
+        program = ConstructInternalAST.apply_function_call_normalization_transforms(program)
         program = ConstructInternalAST.apply_optional_transforms(program, context, normalize_offsets)
 
     return program, context
@@ -2464,33 +2465,78 @@ class ConstructInternalAST:
         return structs_lister.structs, struct_dep_graph
 
     @staticmethod
-    def apply_optional_transforms(program: Program_Node, context: ast_components.InternalFortranAst,
-                                  normalize_offsets: bool) -> Program_Node:
+    def apply_function_call_normalization_transforms(program: Program_Node) -> Program_Node:
         """
         TODO: Why are these optional and not always applicable?
-        Apply a set of optional transformations to the AST under the root `program`:
-        1. Convert the array subscripted accesses to their appropriate nodes.
-        2. Replace complicated expressions in function calls with temporary variables.
-        3. Convert the `sign(a, b)` expressions into If statements.
-        4. Replace the (pointwise) array expressions of Fortrans with simple loops.
-        5. Replace Fortran intrinsics with corresponding DaCe constructs.
-        6. Ensure that each loop iterator is unique.
-        7. Replace complicated expressions in array indices with temporary variables.
-        8. Replace optional arguments to function calls with explicit default values.
+        TODO: How much does the order matter?
+        Apply a set of transformations that "normalizes" function calls to the AST under the root `program`:
+        1. Replace local function statements with corresponding function definition nodes.
+        2. Convert the struct constructors to their appropriate nodes.
+        3. Convert the array subscripted accesses to their appropriate nodes.
+        4. Replace complicated expressions in function calls with temporary variables.
+        5. TODO: Explain `ArgumentExtractor` and the difference with `CallExtractor`.
+        6. TODO: Explain `FunctionCallTransformer`.
+        7. TODO: Explain `FunctionToSubroutineDefiner`.
+        8. TODO: Explain `ElementalFunctionExpander`.
+        9. Replace optional arguments to function calls with explicit default values.
         """
+
+        # Replace local function statements with corresponding function definition nodes.
         program = ast_transforms.functionStatementEliminator(program)
+
+        functions_and_subroutines_builder = ast_transforms.FindFunctionAndSubroutines()
+        functions_and_subroutines_builder.visit(program)
+
+        # Differentiate between function calls and struct constructors, which are indistinguishable in a parse of
+        # Fortran source-code and are all described as function nodes. Convert the struct constructors to their
+        # appropriate nodes.
+        program = ast_transforms.StructConstructorToFunctionCall(functions_and_subroutines_builder.names).visit(program)
 
         # Differentiate between function calls and array accesses, which are indistinguishable in a parse of Fortran
         # source-code and are all described as function nodes. Convert the array subscripted accesses to their
         # appropriate nodes.
-        functions_and_subroutines_builder = ast_transforms.FindFunctionAndSubroutines()
-        functions_and_subroutines_builder.visit(program)
         program = ast_transforms.CallToArray(functions_and_subroutines_builder).visit(program)
 
         # Find any function call with an argument that is an expression that needs to be evaluated instead of just a
         # simple variable. Replace that expression with a temporary variable which contains the result of the
         # expression computed before the function itself is called.
         program = ast_transforms.CallExtractor().visit(program)
+
+        # TODO: Explain the difference with `CallExtractor`.
+        program = ast_transforms.ArgumentExtractor(program).visit(program)
+
+        # TODO: Explain `FunctionCallTransformer`.
+        program = ast_transforms.FunctionCallTransformer().visit(program)
+
+        # TODO: Explain `FunctionToSubroutineDefiner`.
+        program = ast_transforms.FunctionToSubroutineDefiner().visit(program)
+
+        # TODO: Explain `ElementalFunctionExpander`.
+        program = ast_transforms.ElementalFunctionExpander(functions_and_subroutines_builder.names).visit(program)
+
+        # Replace the function calls with implicit optional arguments with corresponding function calls where the
+        # optional arguments are explcitly given their default values.
+        program = ast_transforms.optionalArgsExpander(program)
+
+        return program
+
+    @staticmethod
+    def apply_optional_transforms(program: Program_Node, context: ast_components.InternalFortranAst,
+                                  normalize_offsets: bool) -> Program_Node:
+        """
+        TODO: Why are these optional and not always applicable?
+        TODO: How much does the order matter?
+        Apply a set of optional transformations to the AST under the root `program`:
+        1. # TODO: Explain `PointerRemoval`.
+        2. Convert the `sign(a, b)` expressions into If statements.
+        3. Replace the (pointwise) array expressions of Fortrans with simple loops.
+        4. Replace Fortran intrinsics with corresponding DaCe constructs.
+        5. Ensure that each loop iterator is unique.
+        6. Replace complicated expressions in array indices with temporary variables.
+        """
+
+        # TODO: Explain `PointerRemoval`.
+        program = ast_transforms.PointerRemoval().visit(program)
 
         # Convert the `sign(a, b)` expressions into If statements.
         program = ast_transforms.SignToIf().visit(program)
@@ -2507,15 +2553,11 @@ class ConstructInternalAST:
         # Ensures that each loop iterator is unique.
         program = ast_transforms.ForDeclarer().visit(program)
 
-        # TODO: Can we put it right after `CallExtractor`? Why not?
         # Find any array acess with an index that is an expression that needs to be evaluated instead of just a
         # simple variable. Replace that expression with a temporary variable which contains the result of the
         # expression computed before the array itself is accessed.
         program = ast_transforms.IndexExtractor(program, normalize_offsets).visit(program)
 
-        # Replace the function calls with implicit optional arguments with corresponding function calls where the
-        # optional arguments are explcitly given their default values.
-        program = ast_transforms.optionalArgsExpander(program)
         return program
 
 
@@ -2776,16 +2818,10 @@ def create_sdfg_from_string(
     own_ast.functions_and_subroutines = functions_and_subroutines_builder.names
     own_ast.iblocks = functions_and_subroutines_builder.iblocks
 
-    program = ast_transforms.functionStatementEliminator(program)
-    program = ast_transforms.StructConstructorToFunctionCall(functions_and_subroutines_builder.names).visit(program)
-    program = ast_transforms.CallToArray(functions_and_subroutines_builder).visit(program)
-    program = ast_transforms.CallExtractor().visit(program)
-    program = ast_transforms.ArgumentExtractor(program).visit(program)
+    program = ConstructInternalAST.apply_function_call_normalization_transforms(program)
+    program = ConstructInternalAST.apply_optional_transforms(program, own_ast, normalize_offsets)
 
-    program = ast_transforms.FunctionCallTransformer().visit(program)
-    program = ast_transforms.FunctionToSubroutineDefiner().visit(program)
-    program = ast_transforms.PointerRemoval().visit(program)
-    program = ast_transforms.ElementalFunctionExpander(functions_and_subroutines_builder.names).visit(program)
+    # TODO: What's the difference between this and `FunctionToSubroutineDefiner`?
     for i in program.modules:
         count = 0
         for j in i.function_definitions:
@@ -2806,16 +2842,6 @@ def create_sdfg_from_string(
     if count != len(program.function_definitions):
         raise NameError("Not all functions were transformed to subroutines")
     program.function_definitions = []
-    program = ast_transforms.SignToIf().visit(program)
-    program = ast_transforms.ArrayToLoop(program).visit(program)
-
-    for transformation in own_ast.fortran_intrinsics().transformations():
-        transformation.initialize(program)
-        program = transformation.visit(program)
-
-    program = ast_transforms.ForDeclarer().visit(program)
-    program = ast_transforms.IndexExtractor(program, normalize_offsets).visit(program)
-    program = ast_transforms.optionalArgsExpander(program)
 
     structs, struct_deps = ConstructInternalAST.get_structure_info(program)
     cycles = nx.algorithms.cycles.simple_cycles(struct_deps)
