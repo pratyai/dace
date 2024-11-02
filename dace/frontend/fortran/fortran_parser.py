@@ -103,9 +103,8 @@ def add_views_recursive(sdfg, name, datatype_to_add, struct_views, name_mapping,
 
 
 def add_deferred_shape_assigns_for_structs(structures: ast_transforms.Structures,
-                                           decl: ast_internal_classes.Var_Decl_Node, sdfg: SDFG,
-                                           assign_state: SDFGState, name: str, name_: str, placeholders,
-                                           placeholders_offsets, object, names_to_replace, actual_offsets_per_sdfg):
+                                           decl: ast_internal_classes.Var_Decl_Node, sdfg: SDFG, name: str, name_: str,
+                                           object, names_to_replace, actual_offsets_per_sdfg):
     if not structures.is_struct(decl.type):
         # print("Not adding defferred shape assigns for: ", decl.type,decl.name)
         return
@@ -134,15 +133,13 @@ def add_deferred_shape_assigns_for_structs(structures: ast_transforms.Structures
         # print(ast_struct_type.name,var_type.__class__)
         if isinstance(object.members[ast_struct_type.name], dat.Structure):
 
-            add_deferred_shape_assigns_for_structs(structures, ast_struct_type, sdfg, assign_state,
-                                                   f"{name}->{ast_struct_type.name}", f"{ast_struct_type.name}_{name_}",
-                                                   placeholders, placeholders_offsets,
+            add_deferred_shape_assigns_for_structs(structures, ast_struct_type, sdfg, f"{name}->{ast_struct_type.name}",
+                                                   f"{ast_struct_type.name}_{name_}",
                                                    object.members[ast_struct_type.name], names_to_replace,
                                                    actual_offsets_per_sdfg)
         elif isinstance(var_type, dat.Structure):
-            add_deferred_shape_assigns_for_structs(structures, ast_struct_type, sdfg, assign_state,
-                                                   f"{name}->{ast_struct_type.name}", f"{ast_struct_type.name}_{name_}",
-                                                   placeholders, placeholders_offsets, var_type, names_to_replace,
+            add_deferred_shape_assigns_for_structs(structures, ast_struct_type, sdfg, f"{name}->{ast_struct_type.name}",
+                                                   f"{ast_struct_type.name}_{name_}", var_type, names_to_replace,
                                                    actual_offsets_per_sdfg)
         # print(ast_struct_type)
         # print(ast_struct_type.__class__)
@@ -452,8 +449,7 @@ class AST_translator:
                 assign_state = ast_utils.add_simple_state_to_sdfg(self, sdfg, "assign_struct_sizes")
 
                 for decl in i.vardecl:
-                    add_deferred_shape_assigns_for_structs(self.structures, decl, sdfg, assign_state, decl.name,
-                                                           decl.name, self.placeholders, self.placeholders_offsets,
+                    add_deferred_shape_assigns_for_structs(self.structures, decl, sdfg, decl.name, decl.name,
                                                            sdfg.arrays[self.name_mapping[sdfg][decl.name]],
                                                            self.replace_names, self.actual_offsets_per_sdfg[sdfg])
 
@@ -480,9 +476,7 @@ class AST_translator:
                         for decl in i.vardecl:
                             if decl.name in sdfg.symbols:
                                 continue
-                            add_deferred_shape_assigns_for_structs(self.structures, decl, sdfg, assign_state, decl.name,
-                                                                   decl.name, self.placeholders,
-                                                                   self.placeholders_offsets,
+                            add_deferred_shape_assigns_for_structs(self.structures, decl, sdfg, decl.name, decl.name,
                                                                    sdfg.arrays[self.name_mapping[sdfg][decl.name]],
                                                                    self.replace_names,
                                                                    self.actual_offsets_per_sdfg[sdfg])
