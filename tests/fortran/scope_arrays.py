@@ -28,7 +28,7 @@ def test_fortran_frontend_parent():
                     END SUBROUTINE scope_test_function
                     """
 
-    ast, functions = fortran_parser.create_ast_from_string(test_string, "array_access_test")
+    ast, functions = fortran_parser.create_ast_from_string(test_string)
     ast_transforms.ParentScopeAssigner().visit(ast)
     visitor = ast_transforms.ScopeVarsDeclarations()
     visitor.visit(ast)

@@ -2402,19 +2402,11 @@ class AST_translator:
         self.already_has_edge_back_continue[sdfg] = self.last_sdfg_states[sdfg]
 
 
-def create_ast_from_string(
-        source_string: str,
-        sdfg_name: str,
-        transform: bool = False,
-        normalize_offsets: bool = False,
-        multiple_sdfgs: bool = False
-):
+def create_ast_from_string(source_string: str, transform: bool = False, normalize_offsets: bool = False):
     """
     Creates an AST from a Fortran file in a string
     :param source_string: The fortran file as a string
-    :param sdfg_name: The name to be given to the resulting SDFG
     :return: The resulting AST
-
     """
     parser = pf().create(std="f2008")
     reader = fsr(source_string)

@@ -25,7 +25,7 @@ def test_fortran_frontend_parent():
 
                     END SUBROUTINE array_access_test_function
                     """
-    ast, functions = fortran_parser.create_ast_from_string(test_string, "array_access_test")
+    ast, functions = fortran_parser.create_ast_from_string(test_string)
     ast_transforms.ParentScopeAssigner().visit(ast)
 
     assert ast.parent is None
@@ -73,7 +73,7 @@ def test_fortran_frontend_module():
 
                     END SUBROUTINE array_access_test_function
                     """
-    ast, functions = fortran_parser.create_ast_from_string(test_string, "array_access_test")
+    ast, functions = fortran_parser.create_ast_from_string(test_string)
     ast_transforms.ParentScopeAssigner().visit(ast)
 
     assert ast.parent is None

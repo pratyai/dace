@@ -26,7 +26,7 @@ def test_fortran_frontend_offset_normalizer_1d():
                     """
 
     # Test to verify that offset is normalized correctly
-    ast, own_ast = fortran_parser.create_ast_from_string(test_string, "index_offset_test", True, True)
+    ast, own_ast = fortran_parser.create_ast_from_string(test_string, True, True)
 
     for subroutine in ast.subroutine_definitions:
 
@@ -74,7 +74,7 @@ def test_fortran_frontend_offset_normalizer_1d_symbol():
                     """
 
     # Test to verify that offset is normalized correctly
-    ast, own_ast = fortran_parser.create_ast_from_string(test_string, "index_offset_test", True, True)
+    ast, own_ast = fortran_parser.create_ast_from_string(test_string, True, True)
 
     for subroutine in ast.subroutine_definitions:
 
@@ -126,7 +126,7 @@ def test_fortran_frontend_offset_normalizer_2d():
                     """
 
     # Test to verify that offset is normalized correctly
-    ast, own_ast = fortran_parser.create_ast_from_string(test_string, "index_offset_test", True, True)
+    ast, own_ast = fortran_parser.create_ast_from_string(test_string, True, True)
 
     for subroutine in ast.subroutine_definitions:
 
@@ -189,7 +189,7 @@ def test_fortran_frontend_offset_normalizer_2d_symbol():
                     """
 
     # Test to verify that offset is normalized correctly
-    ast, own_ast = fortran_parser.create_ast_from_string(test_string, "index_offset_test", True, True)
+    ast, own_ast = fortran_parser.create_ast_from_string(test_string, True, True)
 
     for subroutine in ast.subroutine_definitions:
 
@@ -251,7 +251,7 @@ def test_fortran_frontend_offset_normalizer_2d_arr2loop():
                     """
 
     # Test to verify that offset is normalized correctly
-    ast, own_ast = fortran_parser.create_ast_from_string(test_string, "index_offset_test", True, True)
+    ast, own_ast = fortran_parser.create_ast_from_string(test_string, True, True)
 
     for subroutine in ast.subroutine_definitions:
 
@@ -313,7 +313,7 @@ def test_fortran_frontend_offset_normalizer_2d_arr2loop_symbol():
                     """
 
     # Test to verify that offset is normalized correctly
-    ast, own_ast = fortran_parser.create_ast_from_string(test_string, "index_offset_test", True, True)
+    ast, own_ast = fortran_parser.create_ast_from_string(test_string, True, True)
 
     for subroutine in ast.subroutine_definitions:
 
