@@ -824,7 +824,7 @@ class AST_translator:
         if self.last_call_expression.get(sdfg) is not None:
             variables_in_call = self.last_call_expression[sdfg]
 
-        # Sanity check to make sure the parameter numbers match
+        # Check to make sure the parameter numbers match
         if not ((len(variables_in_call) == len(parameters)) or
                 (len(variables_in_call) == len(parameters) + 1
                  and not isinstance(node.result_type, ast_internal_classes.Void))):
@@ -844,7 +844,7 @@ class AST_translator:
         par2 = []
         symbol_arguments = []
 
-        # First we need to check if the parameters are literals or variables
+        # First, we need to check if the parameters are literals or variables
         for arg_i, variable in enumerate(variables_in_call):
             if isinstance(variable, ast_internal_classes.Name_Node):
                 varname = variable.name
@@ -890,7 +890,8 @@ class AST_translator:
                                                     op="=",
                                                     line_number=node.line_number))
 
-        # This handles the case where the function is called with variables starting with the case that the variable is local to the calling SDFG
+        # This handles the case where the function is called with variables starting with the case that the variable
+        # is local to the calling SDFG
         needs_replacement = {}
         substate_sources = []
         substate_destinations = []
@@ -2040,20 +2041,11 @@ class AST_translator:
         hasret = False
         for fsname in self.functions_and_subroutines:
             if fsname.name == node.name.name:
-
-                for i in self.top_level.function_definitions:
-                    if i.name.name == node.name.name:
-                        self.function2sdfg(i, sdfg)
-                        return
                 for i in self.top_level.subroutine_definitions:
                     if i.name.name == node.name.name:
                         self.subroutine2sdfg(i, sdfg)
                         return
                 for j in self.top_level.modules:
-                    for i in j.function_definitions:
-                        if i.name.name == node.name.name:
-                            self.function2sdfg(i, sdfg)
-                            return
                     for i in j.subroutine_definitions:
                         if i.name.name == node.name.name:
                             self.subroutine2sdfg(i, sdfg)
