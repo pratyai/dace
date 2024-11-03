@@ -140,7 +140,7 @@ class NodeTransformer(NodeVisitor):
     A base node visitor that walks the abstract syntax tree and allows
     modification of nodes.
     The `NodeTransformer` will walk the AST and use the return value of the
-    visitor methods to replace old nodes. 
+    visitor methods to replace old nodes.
     """
 
     def as_list(self, x):
@@ -274,7 +274,7 @@ class FindInputs(NodeVisitor):
                     self.visit(i)
             elif isinstance(node.lval, ast_internal_classes.Data_Ref_Node):
                 # if isinstance(node.lval.parent_ref, ast_internal_classes.Name_Node):
-                #    self.nodes.append(node.lval.parent_ref)    
+                #    self.nodes.append(node.lval.parent_ref)
                 if isinstance(node.lval.parent_ref, ast_internal_classes.Array_Subscript_Node):
                     # self.nodes.append(node.lval.parent_ref.name)
                     for i in node.lval.parent_ref.indices:
@@ -384,7 +384,7 @@ class StructLister(NodeVisitor):
     """
     Fortran does not differentiate between arrays and functions.
     We need to go over and convert all function calls to arrays.
-    So, we create a closure of all math and defined functions and 
+    So, we create a closure of all math and defined functions and
     create array expressions for the others.
     """
 
@@ -552,7 +552,7 @@ class StructConstructorToFunctionCall(NodeTransformer):
     """
     Fortran does not differentiate between structure constructors and functions without arguments.
     We need to go over and convert all structure constructors that are in fact functions and transform them.
-    So, we create a closure of all math and defined functions and 
+    So, we create a closure of all math and defined functions and
     transform if necessary.
     """
 
@@ -596,7 +596,7 @@ class CallToArray(NodeTransformer):
     """
     Fortran does not differentiate between arrays and functions.
     We need to go over and convert all function calls to arrays.
-    So, we create a closure of all math and defined functions and 
+    So, we create a closure of all math and defined functions and
     create array expressions for the others.
     """
 
@@ -650,11 +650,10 @@ class ArgumentExtractorNodeLister(NodeVisitor):
             "malloc", "pow", "cbrt", "__dace_epsilon", *FortranIntrinsics.call_extraction_exemptions()
         ]:
             for i in node.args:
-                if isinstance(i, ast_internal_classes.Name_Node) or isinstance(i,
-                                                                               ast_internal_classes.Literal) or isinstance(
-                        i, ast_internal_classes.Array_Subscript_Node) or isinstance(i,
-                                                                                    ast_internal_classes.Data_Ref_Node) or isinstance(
-                        i, ast_internal_classes.Actual_Arg_Spec_Node):
+                if isinstance(i, (
+                        ast_internal_classes.Name_Node, ast_internal_classes.Literal,
+                        ast_internal_classes.Array_Subscript_Node,
+                        ast_internal_classes.Data_Ref_Node, ast_internal_classes.Actual_Arg_Spec_Node)):
                     continue
                 else:
                     self.nodes.append(i)
@@ -696,12 +695,11 @@ class ArgumentExtractor(NodeTransformer):
                                                      args=[],
                                                      line_number=node.line_number)
         for i, arg in enumerate(node.args):
-            # Ensure we allow to extract function calls from arguments
-            if isinstance(arg, ast_internal_classes.Name_Node) or isinstance(arg,
-                                                                             ast_internal_classes.Literal) or isinstance(
-                    arg, ast_internal_classes.Array_Subscript_Node) or isinstance(arg,
-                                                                                  ast_internal_classes.Data_Ref_Node) or isinstance(
-                    arg, ast_internal_classes.Actual_Arg_Spec_Node):
+            # Ensure we allow extracting function calls from arguments
+            if isinstance(arg, (
+                    ast_internal_classes.Name_Node, ast_internal_classes.Literal,
+                    ast_internal_classes.Array_Subscript_Node,
+                    ast_internal_classes.Data_Ref_Node, ast_internal_classes.Actual_Arg_Spec_Node)):
                 result.args.append(arg)
             else:
                 result.args.append(ast_internal_classes.Name_Node(name="tmp_arg_" + str(tmp), type='VOID'))

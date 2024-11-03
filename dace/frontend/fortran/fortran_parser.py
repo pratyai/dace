@@ -236,16 +236,8 @@ class AST_translator:
     This class is responsible for translating the internal AST into a SDFG.
     """
 
-    def __init__(
-            self,
-            ast: ast_components.InternalFortranAst,
-            source: str,
-            multiple_sdfgs: bool = False,
-            startpoint=None,
-            sdfg_path=None,
-            toplevel_subroutine: Optional[str] = None,
-            normalize_offsets=False
-    ):
+    def __init__(self, ast: ast_components.InternalFortranAst, source: str, multiple_sdfgs: bool = False,
+                 startpoint=None, sdfg_path=None, normalize_offsets=False):
         """
         :ast: The internal fortran AST to be used for translation
         :source: The source file name from which the AST was generated
@@ -287,7 +279,6 @@ class AST_translator:
         self.placeholders_offsets = ast.placeholders_offsets
         # self.iblocks=ast.iblocks
         self.replace_names = {}
-        self.toplevel_subroutine = toplevel_subroutine
         self.normalize_offsets = normalize_offsets
         self.ast_elements = {
             ast_internal_classes.If_Stmt_Node: self.ifstmt2sdfg,
@@ -310,21 +301,20 @@ class AST_translator:
             ast_internal_classes.Pointer_Assignment_Stmt_Node: self.pointerassignment2sdfg,
         }
 
-    def get_dace_type(self, type):
+    def get_dace_type(self, typ):
         """  
         This function matches the fortran type to the corresponding dace type
         by referencing the ast_utils.fortrantypes2dacetypes dictionary.
         """
-        if isinstance(type, str):
-            if type in ast_utils.fortrantypes2dacetypes:
-                return ast_utils.fortrantypes2dacetypes[type]
-            elif type in self.registered_types:
-                return self.registered_types[type]
-            else:
-                # TODO: This is bandaid.
-                if type == "VOID":
-                    return ast_utils.fortrantypes2dacetypes["DOUBLE"]
-                    raise ValueError("Unknown type " + type)
+        assert isinstance(typ, str)
+        assert typ in ast_utils.fortrantypes2dacetypes or typ in self.registered_types or typ == 'VOID'
+        if typ in ast_utils.fortrantypes2dacetypes:
+            return ast_utils.fortrantypes2dacetypes[typ]
+        elif typ in self.registered_types:
+            return self.registered_types[typ]
+        elif typ == 'VOID':
+            # TODO: This is bandaid.
+            return ast_utils.fortrantypes2dacetypes["DOUBLE"]
 
     def get_name_mapping_in_context(self, sdfg: SDFG):
         """
@@ -816,7 +806,7 @@ class AST_translator:
         if node.execution_part is None:
             return
 
-        # First get the list of read and written variables
+        # First, get the list of read and written variables
         inputnodefinder = ast_transforms.FindInputs()
         inputnodefinder.visit(node)
         input_vars = inputnodefinder.nodes
@@ -1503,7 +1493,6 @@ class AST_translator:
                             # print("array info: "+str(array),array.__class__.__name__)
                             # print(element_type,element_type.__class__.__name__)
                             if element_type.name in self.registered_types:
-                                datatype = self.get_dace_type(str(element_type))
                                 datatype_to_add = copy.deepcopy(element_type)
                                 datatype_to_add.transient = False
                                 # print(datatype_to_add,datatype_to_add.__class__.__name__)
@@ -1569,7 +1558,6 @@ class AST_translator:
                         # Functionally, this identifies the case where the array is in fact a scalar
                         if shape == () or shape == (1,) or shape == [] or shape == [1]:
                             if hasattr(array, "name") and array.name in self.registered_types:
-                                datatype = self.get_dace_type(array.name)
                                 datatype_to_add = copy.deepcopy(array)
                                 datatype_to_add.transient = False
                                 new_sdfg.add_datadesc(self.name_mapping[new_sdfg][local_name.name], datatype_to_add)
@@ -1957,7 +1945,7 @@ class AST_translator:
                     self.translate(i, new_sdfg)
                 self.translate(node.execution_part, new_sdfg)
 
-        if self.multiple_sdfgs == True:
+        if self.multiple_sdfgs:
             internal_sdfg.path = self.sdfg_path + new_sdfg.name + ".sdfg"
             # new_sdfg.save(path.join(self.sdfg_path, new_sdfg.name + ".sdfg"))
 
@@ -2766,7 +2754,6 @@ def create_sdfg_from_string(
             rename_dict[i] = local_rename_dict
             name_dict[i] = names
 
-    tables = SymbolTable
     own_ast = ast_components.InternalFortranAst()
     functions_to_rename = {}
     for i in parse_order:
@@ -2862,8 +2849,7 @@ def create_sdfg_from_string(
         raise NameError("Structs have cyclic dependencies")
     own_ast.tables = own_ast.symbols
 
-    ast2sdfg = AST_translator(own_ast, __file__, multiple_sdfgs=multiple_sdfgs, toplevel_subroutine=sdfg_name,
-                              normalize_offsets=normalize_offsets)
+    ast2sdfg = AST_translator(own_ast, __file__, multiple_sdfgs=multiple_sdfgs, normalize_offsets=normalize_offsets)
     sdfg = SDFG(sdfg_name)
     ast2sdfg.actual_offsets_per_sdfg[sdfg] = {}
     ast2sdfg.top_level = program
