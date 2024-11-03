@@ -347,16 +347,14 @@ class AST_translator:
         :return: The memlet range for the given variable
         """
         var = self.get_arrays_in_context(sdfg).get(var_name)
-
         if len(var.shape) == 0:
             return ""
-
-        if (len(var.shape) == 1 and var.shape[0] == 1):
+        elif tuple(var.shape) == (1,):
             return "0"
 
-        for o_v in variables:
-            if o_v.name == var_name_tasklet:
-                return ast_utils.generate_memlet(o_v, sdfg, self, self.normalize_offsets)
+        o_v = [o_v for o_v in variables if o_v.name == var_name_tasklet]
+        assert len(o_v) == 1
+        ast_utils.generate_memlet(o_v[0], sdfg, self, self.normalize_offsets)
 
     def translate(self, node: ast_internal_classes.FNode, sdfg: SDFG):
         """
@@ -367,13 +365,13 @@ class AST_translator:
         :note: This function will call the appropriate function for the node type
         :note: The dictionary ast_elements, part of the class itself contains all functions that are called for the different node types
         """
-        if node.__class__ in self.ast_elements:
-            self.ast_elements[node.__class__](node, sdfg)
-        elif isinstance(node, list):
+        if isinstance(node, list):
             for i in node:
                 self.translate(i, sdfg)
-        else:
-            warnings.warn(f"WARNING: {node.__class__.__name__}")
+            return
+
+        assert node.__class__ in self.ast_elements
+        self.ast_elements[node.__class__](node, sdfg)
 
     def ast2sdfg(self, node: ast_internal_classes.Program_Node, sdfg: SDFG):
         """
@@ -554,10 +552,7 @@ class AST_translator:
         :param sdfg: The SDFG to which the node should be translated
         """
         name = node.name.name
-        if node.component_part is None:
-            components = []
-        else:
-            components = node.component_part.component_def_stmts
+        components = node.component_part.component_def_stmts if node.component_part is not None else []
         dict_setup = {}
         for i in components:
             j = i.vars
@@ -835,10 +830,6 @@ class AST_translator:
                  and not isinstance(node.result_type, ast_internal_classes.Void))):
             print('Variables in call', len(variables_in_call))
             print('Parameters', len(parameters))
-            # for i in variables_in_call:
-            #    print("VAR CALL: ", i.name)
-            # for j in parameters:
-            #    print("LOCAL TO UPDATE: ", j.name)
             raise ValueError("number of parameters does not match the function signature")
 
         # creating new arrays for nested sdfg
@@ -846,13 +837,11 @@ class AST_translator:
         outs_in_new_sdfg = []
 
         views = []
-        ind_count = 0
 
         var2 = []
         literals = []
         literal_values = []
         par2 = []
-        to_fix = []
         symbol_arguments = []
 
         # First we need to check if the parameters are literals or variables
@@ -3527,36 +3516,7 @@ def create_sdfg_from_fortran_file_with_options(source_string: str, source_list, 
             ast2sdfg.translate(program, sdfg)
 
             sdfg.save(os.path.join(icon_sdfgs_dir, sdfg.name + "_raw_before_intrinsics_full.sdfgz"), compress=True)
-            # for sd in sdfg.all_sdfgs_recursive():
-            #     free_symbols = sd.free_symbols
-            #     for i in ['__f2dace_OA_iblk_d_0_s_4140', '__f2dace_OA_iidx_d_1_s_4138', '__f2dace_OA_iidx_d_2_s_4139', '__f2dace_OA_iblk_d_2_s_4142', '__f2dace_OA_iblk_d_1_s_4141', '__f2dace_OA_iidx_d_0_s_4137','__f2dace_A_iidx_d_1_s_5395', '__f2dace_A_iblk_d_0_s_5397', '__f2dace_A_iidx_d_2_s_5396', '__f2dace_A_iblk_d_1_s_5398', '__f2dace_A_iblk_d_2_s_5399', '__f2dace_A_iidx_d_0_s_5394','__f2dace_A_iidx_d_0_s_4137', '__f2dace_A_iblk_d_2_s_4142', '__f2dace_A_iblk_d_0_s_4140', '__f2dace_A_iidx_d_1_s_4138', '__f2dace_A_iidx_d_2_s_4139', '__f2dace_A_iblk_d_1_s_4141','__f2dace_OA_opt_out2_d_1_s_8111', '__f2dace_A_opt_out2_d_0_s_8110', '__f2dace_OA_opt_out2_d_2_s_8112', '__f2dace_OA_opt_out2_d_0_s_8110', '__f2dace_A_opt_out2_d_2_s_8112', '__f2dace_A_opt_out2_d_1_s_8111','__f2dace_A_opt_out2_d_1_s_8111', '__f2dace_A_ieidx_d_2_s_8121', '__f2dace_OA_opt_out2_d_1_s_8111', '__f2dace_A_ieblk_d_1_s_8123', '__f2dace_A_inidx_d_1_s_8114', '__f2dace_A_inblk_d_2_s_8118', '__f2dace_A_ieidx_d_0_s_8119', '__f2dace_A_opt_out2_d_2_s_8112', '__f2dace_A_ieidx_d_1_s_8120', '__f2dace_OA_opt_out2_d_0_s_8110', '__f2dace_A_inblk_d_0_s_8116', '__f2dace_OA_opt_out2_d_2_s_8112', '__f2dace_A_ieblk_d_2_s_8124', '__f2dace_A_inblk_d_1_s_8117', '__f2dace_A_ieblk_d_0_s_8122', '__f2dace_A_opt_out2_d_0_s_8110', '__f2dace_A_inidx_d_2_s_8115', '__f2dace_A_inidx_d_0_s_8113','__f2dace_A_iidx_d_1_s_8159', '__f2dace_A_iidx_d_0_s_8158', '__f2dace_A_iblk_d_0_s_8161', '__f2dace_A_iblk_d_1_s_8162', '__f2dace_A_iblk_d_2_s_8163', '__f2dace_A_iidx_d_2_s_8160','__f2dace_A_iblk_d_0_s_6698', '__f2dace_A_iblk_d_1_s_6699', '__f2dace_A_iidx_d_2_s_6697', '__f2dace_A_iidx_d_1_s_6696', '__f2dace_A_iblk_d_2_s_6700', '__f2dace_A_iidx_d_0_s_6695','__f2dace_A_incidx_d_2_s_8055', '__f2dace_A_iqblk_d_0_s_8044', '__f2dace_A_incblk_d_1_s_8057', '__f2dace_A_iqblk_d_1_s_8045', '__f2dace_A_iqidx_d_2_s_8043', '__f2dace_A_icidx_d_2_s_8031', '__f2dace_A_ivblk_d_2_s_8052', '__f2dace_A_incidx_d_0_s_8053', '__f2dace_A_icidx_d_0_s_8029', '__f2dace_A_incblk_d_2_s_8058', '__f2dace_A_incblk_d_0_s_8056', '__f2dace_A_ividx_d_2_s_8049', '__f2dace_A_icblk_d_0_s_8032', '__f2dace_A_ieidx_d_0_s_8035', '__f2dace_A_ivblk_d_0_s_8050', '__f2dace_A_ieidx_d_1_s_8036', '__f2dace_A_icidx_d_1_s_8030', '__f2dace_A_incidx_d_1_s_8054', '__f2dace_A_iqidx_d_0_s_8041', '__f2dace_A_icblk_d_2_s_8034', '__f2dace_A_ieblk_d_0_s_8038', '__f2dace_A_ividx_d_0_s_8047', '__f2dace_A_ieblk_d_2_s_8040', '__f2dace_A_ividx_d_1_s_8048', '__f2dace_A_icblk_d_1_s_8033', '__f2dace_A_iqidx_d_1_s_8042', '__f2dace_A_ieblk_d_1_s_8039', '__f2dace_A_iqblk_d_2_s_8046', '__f2dace_A_ieidx_d_2_s_8037', '__f2dace_A_ivblk_d_1_s_8051']:
-            #         #print("I want to remove:", i)
-            #         if(i in sd.symbols):
-            #             sd.symbols.pop(i)
-            #             print("Removed from symbols ",i)
-            #             if sd.parent_nsdfg_node is not None:
-            #                 if i in sd.parent_nsdfg_node.symbol_mapping:
-            #                     print("Removed from symbol mapping ",i)
-            #                     sd.parent_nsdfg_node.symbol_mapping.pop(i)
             sdfg.apply_transformations(IntrinsicSDFGTransformation)
-
-            # for sd in sdfg.all_sdfgs_recursive():
-            #     free_symbols = sd.free_symbols
-            #     for i in free_symbols:
-            #         #print("I want to remove:", i)
-            #         if(i in sd.symbols):
-            #             sd.symbols.pop(i)
-            #             #print("Removed from symbols ",i)
-            #             if sd.parent_nsdfg_node is not None:
-            #                 if i in sd.parent_nsdfg_node.symbol_mapping:
-            #                     #print("Removed from symbol mapping ",i)
-            #                     sd.parent_nsdfg_node.symbol_mapping.pop(i)
-            # try:
-
-            #    sdfg.save(os.path.join(icon_sdfgs_dir, sdfg.name + "_raw.sdfg"))
-            # except:
-            #    print("Intrinsics failed for ", sdfg.name)    
-            #    continue
 
             try:
                 sdfg.expand_library_nodes()
