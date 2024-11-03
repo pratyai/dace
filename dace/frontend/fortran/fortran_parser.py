@@ -2794,7 +2794,6 @@ def create_sdfg_from_string(
         if count != len(i.function_definitions):
             raise NameError("Not all functions were transformed to subroutines")
         i.function_definitions = []
-    program.function_definitions = []
     count = 0
     for i in program.function_definitions:
         if isinstance(i, ast_internal_classes.Subroutine_Subprogram_Node):
