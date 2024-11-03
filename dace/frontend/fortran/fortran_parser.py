@@ -1769,9 +1769,7 @@ class AST_translator:
                                            transient=False,
                                            strides=array_in_global.strides,
                                            offset=array_in_global.offset)
-        if self.multiple_sdfgs == False:
-            # print("Adding nested sdfg", new_sdfg.name, "to", sdfg.name)
-            # print(sym_dict)
+        if not self.multiple_sdfgs:
             internal_sdfg = substate.add_nested_sdfg(new_sdfg,
                                                      sdfg,
                                                      ins_in_new_sdfg,
@@ -1784,8 +1782,6 @@ class AST_translator:
                                                      outs_in_new_sdfg,
                                                      symbol_mapping=sym_dict,
                                                      name="External_nested_" + new_sdfg.name)
-            # if self.multiple_sdfgs==False:
-            # Now adding memlets
 
         for i in self.libstates:
             memlet = "0"
@@ -1817,7 +1813,7 @@ class AST_translator:
 
             if not hasattr(var, "shape") or len(var.shape) == 0:
                 memlet = ""
-            elif (len(var.shape) == 1 and var.shape[0] == 1):
+            elif tuple(var.shape) == (1,):
                 memlet = "0"
             else:
                 memlet = ast_utils.generate_memlet(i, sdfg, self, self.normalize_offsets)
@@ -1934,6 +1930,10 @@ class AST_translator:
                 for i in assigns:
                     self.translate(i, new_sdfg)
                 self.translate(node.execution_part, new_sdfg)
+
+        if not new_sdfg.states():
+            # If the new SDFG is entirely empty, add an empty starting state to satisfy SDFG semantics.
+            new_sdfg.add_state('empty')
 
         if self.multiple_sdfgs:
             internal_sdfg.path = self.sdfg_path + new_sdfg.name + ".sdfg"
