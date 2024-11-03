@@ -2416,7 +2416,8 @@ class PointerRemoval(NodeTransformer):
             args=node.args,
             specification_part=specification_part,
             execution_part=execution_part,
-            line_number=node.line_number
+            line_number=node.line_number,
+            elemental=node.elemental,
         )
 
     def visit_Specification_Part_Node(self, node: ast_internal_classes.Specification_Part_Node):
