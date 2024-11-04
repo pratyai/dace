@@ -3,7 +3,6 @@ from typing import Any, List, Optional, Type, TypeVar, Union, overload, TYPE_CHE
 
 from fparser.two import Fortran2003 as f03
 from fparser.two import Fortran2008 as f08
-from fparser.two import symbol_table
 
 from dace.frontend.fortran import ast_internal_classes
 from dace.frontend.fortran.ast_internal_classes import Name_Node
@@ -1511,10 +1510,8 @@ class InternalFortranAst:
         # decls = list(filter(lambda x: x is not None, decls))
         uses = [self.create_ast(i) for i in node.children if isinstance(i, f03.Use_Stmt)]
         tmp = [self.create_ast(i) for i in node.children]
-        typedecls = [
-            i for i in tmp if isinstance(i, ast_internal_classes.Type_Decl_Node)
-                              or isinstance(i, ast_internal_classes.Derived_Type_Def_Node)
-        ]
+        typedecls = [i for i in tmp if
+                     isinstance(i, (ast_internal_classes.Type_Decl_Node, ast_internal_classes.Derived_Type_Def_Node))]
         symbols = []
         iblocks = []
         for i in others:
