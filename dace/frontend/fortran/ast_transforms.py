@@ -823,10 +823,10 @@ class FunctionToSubroutineDefiner(NodeTransformer):
                         break
 
         if not found:
-
             var = ast_internal_classes.Var_Decl_Node(
                 name=node.name.name + "__ret",
-                type='VOID'
+                type='VOID',
+                sizes=None,
             )
             stmt_node = ast_internal_classes.Decl_Stmt_Node(vardecl=[var], line_number=node.line_number)
 
