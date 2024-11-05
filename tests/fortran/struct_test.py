@@ -1,51 +1,56 @@
 # Copyright 2019-2023 ETH Zurich and the DaCe authors. All rights reserved.
 
 import numpy as np
-import pytest
 
 from dace.frontend.fortran import fortran_parser
 
+
 def test_fortran_struct():
     test_string = """
-                    PROGRAM struct_test_range
-                    implicit none
+program struct_test_range
+  use lib
+  implicit none
 
-                    type test_type
-                        integer :: start
-                        integer :: end
-                    end type
+  integer, dimension(6) :: res
+  integer :: startidx
+  integer :: endidx
+  call struct_test_range_test_function(res, startidx, endidx)
+end
+"""
+    sources = {'lib.f90': """
+module lib
+  type test_type
+    integer :: start
+    integer :: end
+  end type
 
-                    integer, dimension(6) :: res
-                    integer :: startidx
-                    integer :: endidx
-                    CALL struct_test_range_test_function(res, startidx, endidx)
-                    end
+contains
+  subroutine struct_test_range_test_function(res, startidx, endidx)
+    integer, dimension(6) :: res
+    integer :: startidx
+    integer :: endidx
+    type(test_type) :: indices
 
-                    SUBROUTINE struct_test_range_test_function(res, startidx, endidx)
-                    integer, dimension(6) :: res
-                    integer :: startidx
-                    integer :: endidx
-                    type(test_type) :: indices
+    indices%start = startidx
+    indices%end = endidx
 
-                    indices%start=startidx
-                    indices%end=endidx
+    call struct_test_range2_test_function(res, indices)
 
-                    CALL struct_test_range2_test_function(res, indices)
+  end subroutine struct_test_range_test_function
 
-                    END SUBROUTINE struct_test_range_test_function
+  subroutine struct_test_range2_test_function(res, idx)
+    integer, dimension(6) :: res
+    type(test_type) :: idx
 
-                    SUBROUTINE struct_test_range2_test_function(res, idx)
-                    integer, dimension(6) :: res
-                    type(test_type) :: idx
+    res(idx%start:idx%end) = 42
 
-                    res(idx%start:idx%end) = 42
+  end subroutine struct_test_range2_test_function
 
-                    END SUBROUTINE struct_test_range2_test_function
-                    """
-    sources={}
+end module lib
+"""}
     sdfg = fortran_parser.create_sdfg_from_string(test_string, "res", False, sources=sources)
     sdfg.save('before.sdfg')
-    sdfg.simplify(verbose=True)
+    # sdfg.simplify(verbose=True)
     sdfg.save('after.sdfg')
     sdfg.compile()
 
@@ -54,53 +59,59 @@ def test_fortran_struct():
     res[:] = 0
     sdfg(res=res, start=2, end=5)
     print(res)
+
 
 def test_fortran_struct_lhs():
     test_string = """
-                    PROGRAM struct_test_range
-                    implicit none
+program struct_test_range
+  use lib
+  implicit none
 
-                    type test_type
-                        integer, dimension(6) :: res
-                        integer :: start
-                        integer :: end
-                    end type
+  integer, dimension(6) :: res
+  integer :: start
+  integer :: end
+  call struct_test_range_test_function(res, start, end)
+end
+"""
+    sources = {'lib.f90': """
+module lib
+  type test_type
+    integer, dimension(6) :: res
+    integer :: start
+    integer :: end
+  end type
 
-                    type test_type2
-                        type(test_type) :: var
-                    end type
+  type test_type2
+    type(test_type) :: var
+  end type
 
-                    integer, dimension(6) :: res
-                    integer :: start
-                    integer :: end
-                    CALL struct_test_range_test_function(res, start, end)
-                    end
+contains
+  subroutine struct_test_range_test_function(res, start, end)
+    integer, dimension(6) :: res
+    integer :: start
+    integer :: end
+    type(test_type) :: indices
+    type(test_type2) :: val
 
-                    SUBROUTINE struct_test_range_test_function(res, start, end)
-                    integer, dimension(6) :: res
-                    integer :: start
-                    integer :: end
-                    type(test_type) :: indices
-                    type(test_type2) :: val
+    indices = test_type(res, start, end)
+    val = test_type2(indices)
 
-                    indices = test_type(res, start, end)
-                    val = test_type2(indices)
+    call struct_test_range2_test_function(val)
 
-                    CALL struct_test_range2_test_function(val)
+  end subroutine struct_test_range_test_function
 
-                    END SUBROUTINE struct_test_range_test_function
+  subroutine struct_test_range2_test_function(idx)
+    type(test_type2) :: idx
 
-                    SUBROUTINE struct_test_range2_test_function(idx)
-                    type(test_type2) :: idx
+    idx%var%res(idx%var%start:idx%var%end) = 42
 
-                    idx%var%res(idx%var%start:idx%var%end) = 42
+  end subroutine struct_test_range2_test_function
 
-                    END SUBROUTINE struct_test_range2_test_function
-                    """
-    sources={}
+end module lib
+"""}
     sdfg = fortran_parser.create_sdfg_from_string(test_string, "res", False, sources=sources)
     sdfg.save('before.sdfg')
-    sdfg.simplify(verbose=True)
+    # sdfg.simplify(verbose=True)
     sdfg.save('after.sdfg')
     sdfg.compile()
 
@@ -109,6 +120,7 @@ def test_fortran_struct_lhs():
     res[:] = 0
     sdfg(res=res, start=2, end=5)
     print(res)
+
 
 if __name__ == "__main__":
     test_fortran_struct()
