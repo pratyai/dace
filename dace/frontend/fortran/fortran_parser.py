@@ -3,13 +3,15 @@
 from venv import create
 import warnings
 
+import networkx as nx
+
 from dace.data import Scalar
 
 import dace.frontend.fortran.ast_components as ast_components
 import dace.frontend.fortran.ast_transforms as ast_transforms
 import dace.frontend.fortran.ast_utils as ast_utils
 import dace.frontend.fortran.ast_internal_classes as ast_internal_classes
-from typing import List, Optional, Tuple, Set
+from typing import List, Optional, Tuple, Set, Union, Dict
 from dace import dtypes
 from dace import Language as lang
 from dace import data as dat
@@ -1059,6 +1061,116 @@ class AST_translator:
         self.last_loop_breaks[cfg] = self.last_sdfg_states[cfg]
         cfg.add_edge(self.last_sdfg_states[cfg], self.last_loop_continues.get(cfg), InterstateEdge())
 
+
+def recursive_ast_improver(ast,
+                           source_list: Union[List, Dict],
+                           include_list: List,
+                           parser,
+                           interface_blocks: Dict,
+                           exclude_list: List,
+                           missing_modules: List,
+                           dep_graph: nx.DiGraph,
+                           asts: Dict):
+    dfl = ast_utils.DefModuleLister()
+    dfl.get_defined_modules(ast)
+    defined_modules = dfl.list_of_modules
+    main_program_mode = False
+    if len(defined_modules) != 1:
+        # print("Defined modules: ", defined_modules)
+        print("Assumption failed: Only one module per file")
+        if len(defined_modules) == 0 and ast.__class__.__name__ == "Program":
+            main_program_mode = True
+    ufl = ast_utils.UseModuleLister()
+    ufl.get_used_modules(ast)
+    objects_in_modules = ufl.objects_in_use
+    used_modules = ufl.list_of_modules
+
+    fandsl = ast_utils.FunctionSubroutineLister()
+    fandsl.get_functions_and_subroutines(ast)
+    functions_and_subroutines = fandsl.list_of_functions + fandsl.list_of_subroutines  # + list(fandsl.interface_blocks.keys())
+    if len(fandsl.interface_blocks) > 0:
+        interface_blocks[ast.children[0].children[0].children[1].string.lower()] = fandsl.interface_blocks
+
+    # print("Functions and subroutines: ", functions_and_subroutines)
+    if not main_program_mode:
+        parent_module = defined_modules[0]
+    else:
+        parent_module = ast.children[0].children[0].children[1].string
+    for i in defined_modules:
+        if i not in exclude_list:
+            exclude_list.append(i)
+        # if i not in dep_graph.nodes:
+        dep_graph.add_node(i, info_list=fandsl)
+    for i in used_modules:
+        if i not in dep_graph.nodes:
+            dep_graph.add_node(i)
+        weight = None
+        if i in objects_in_modules:
+            weight = []
+
+            for j in objects_in_modules[i].children:
+                weight.append(j)
+
+        dep_graph.add_edge(parent_module, i, obj_list=weight)
+
+    # print("It's turtles all the way down: ", len(exclude_list))
+    modules_to_parse = []
+    for i in used_modules:
+        if i not in defined_modules and i not in exclude_list:
+            # print("Module " + i + " not defined")
+            modules_to_parse.append(i)
+    added_modules = []
+    for i in modules_to_parse:
+        found = False
+        name = i
+        if i == "mo_restart_nml_and_att":
+            name = "mo_restart_nmls_and_atts"
+        if i == "yomhook":
+            name = "yomhook_dummy"
+        for j in source_list:
+            if name in j:
+                fname = j.split("/")
+                fname = fname[len(fname) - 1]
+                if fname == name + ".f90" or fname == name + ".F90":
+                    found = True
+                    next_file = j
+                    break
+
+        if not found:
+            # print("Module " + i + " not found in source list! This is bad!")
+            if i not in missing_modules:
+                missing_modules.append(i)
+            # raise Exception("Module " + i + " not found in source list")
+            continue
+        if isinstance(source_list, dict):
+            reader = fsr(source_list[next_file])
+            next_ast = parser(reader)
+
+        else:
+            next_reader = ffr(file_candidate=next_file, include_dirs=include_list, source_only=source_list)
+            next_ast = parser(next_reader)
+
+        next_ast = recursive_ast_improver(next_ast,
+                                          source_list,
+                                          include_list,
+                                          parser,
+                                          exclude_list=exclude_list,
+                                          missing_modules=missing_modules,
+                                          interface_blocks=interface_blocks,
+                                          dep_graph=dep_graph,
+                                          asts=asts)
+        for mod in next_ast.children:
+            added_modules.append(mod)
+            if mod.children[0].children[1].string not in exclude_list:
+                exclude_list.append(mod.children[0].children[1].string)
+
+    for i in added_modules:
+        if ast.children.count(i) == 0:
+            ast.children.append(i)
+        asts[i.children[0].children[1].string.lower()] = i
+    return ast
+
+
 def create_ast_from_string(
     source_string: str,
     sdfg_name: str,
@@ -1075,6 +1187,15 @@ def create_ast_from_string(
     parser = pf().create(std="f2008")
     reader = fsr(source_string)
     ast = parser(reader)
+    ast = recursive_ast_improver(ast,
+                                 {},
+                                 [],
+                                 parser,
+                                 {},
+                                 exclude_list=[],
+                                 missing_modules=[],
+                                 dep_graph=nx.DiGraph(),
+                                 asts={})
     tables = SymbolTable
     own_ast = ast_components.InternalFortranAst(ast, tables)
     program = own_ast.create_ast(ast)
@@ -1115,6 +1236,16 @@ def create_sdfg_from_string(
     parser = pf().create(std="f2008")
     reader = fsr(source_string)
     ast = parser(reader)
+    ast = recursive_ast_improver(ast,
+                                 {},
+                                 [],
+                                 parser,
+                                 {},
+                                 exclude_list=[],
+                                 missing_modules=[],
+                                 dep_graph=nx.DiGraph(),
+                                 asts={})
+
     tables = SymbolTable
     own_ast = ast_components.InternalFortranAst(ast, tables)
     program = own_ast.create_ast(ast)
@@ -1162,6 +1293,15 @@ def create_sdfg_from_fortran_file(source_string: str, use_experimental_cfg_block
     parser = pf().create(std="f2008")
     reader = ffr(source_string)
     ast = parser(reader)
+    ast = recursive_ast_improver(ast,
+                                 {},
+                                 [],
+                                 parser,
+                                 {},
+                                 exclude_list=[],
+                                 missing_modules=[],
+                                 dep_graph=nx.DiGraph(),
+                                 asts={})
     tables = SymbolTable
     own_ast = ast_components.InternalFortranAst(ast, tables)
     program = own_ast.create_ast(ast)

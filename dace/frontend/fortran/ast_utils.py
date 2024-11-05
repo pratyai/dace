@@ -361,3 +361,160 @@ class ModuleMap(dict):
     def __setitem__(self, k, v) -> None:
         assert isinstance(k, ast_internal_classes.Module_Node)
         return super().__setitem__(k, v)
+
+
+class UseModuleLister:
+    def __init__(self):
+        self.list_of_modules = []
+        self.objects_in_use={}
+
+    def get_used_modules(self, node):
+        if node is None:
+            return
+        if not hasattr(node, "children"):
+            return
+        for i in node.children:
+            if i.__class__.__name__ == "Use_Stmt":
+                if i.children[0] is not None:
+                    if i.children[0].string.lower()=="intrinsic":
+                        continue
+                for j in i.children:
+                    if j.__class__.__name__ == "Name":
+                        self.list_of_modules.append(j.string)
+                        for k in i.children:
+                            if k.__class__.__name__ == "Only_List":
+                                self.objects_in_use[j.string] = k
+
+            else:
+                self.get_used_modules(i)
+
+
+class FunctionSubroutineLister:
+    def __init__(self):
+        self.list_of_functions = []
+        self.names_in_functions = {}
+        self.list_of_subroutines = []
+        self.names_in_subroutines = {}
+        self.list_of_types = []
+        self.names_in_types = {}
+        self.list_of_module_vars = []
+        self.interface_blocks = {}
+
+    def get_functions_and_subroutines(self, node):
+        if node is None:
+            return
+        if not hasattr(node, "children"):
+            return
+        for i in node.children:
+            if i.__class__.__name__ == "Subroutine_Stmt":
+                for j in i.children:
+                    if j.__class__.__name__ == "Name":
+                        nl = NameLister()
+                        nl.get_names(node)
+                        tnl = TypeNameLister()
+                        tnl.get_typenames(node)
+                        self.names_in_subroutines[j.string] = nl.list_of_names
+                        self.names_in_subroutines[j.string] += tnl.list_of_typenames
+                        self.list_of_subroutines.append(j.string)
+            elif i.__class__.__name__ == "Type_Declaration_Stmt":
+                if node.__class__.__name__ == "Specification_Part":
+                    if node.parent.__class__.__name__ == "Module":
+                        self.list_of_module_vars.append(i)
+
+
+            elif i.__class__.__name__ == "Derived_Type_Def":
+                name = i.children[0].children[1].string
+                nl = NameLister()
+                nl.get_names(i)
+                tnl = TypeNameLister()
+                tnl.get_typenames(i)
+                self.names_in_types[name] = nl.list_of_names
+                self.names_in_types[name] += tnl.list_of_typenames
+                self.list_of_types.append(name)
+            elif i.__class__.__name__ == "Function_Stmt":
+                for j in i.children:
+                    if j.__class__.__name__ == "Name":
+                        nl = NameLister()
+                        nl.get_names(node)
+                        tnl = TypeNameLister()
+                        tnl.get_typenames(node)
+                        self.names_in_functions[j.string] = nl.list_of_names
+                        self.names_in_functions[j.string] += tnl.list_of_typenames
+                        self.list_of_functions.append(j.string)
+            elif i.__class__.__name__ == "Interface_Block":
+                name = None
+                functions = []
+                for j in i.children:
+
+                    if j.__class__.__name__ == "Interface_Stmt":
+                        nl = NameLister()
+                        nl.get_names(j)
+                        if len(nl.list_of_names) == 1:
+                            name = nl.list_of_names[0]
+
+                    if j.__class__.__name__ == "Procedure_Stmt":
+                        for k in j.children:
+                            if k.__class__.__name__ == "Procedure_Name_List":
+
+                                for n in k.children:
+                                    if n.__class__.__name__ == "Name":
+                                        if n not in functions:
+                                            functions.append(n)
+
+                if name is not None and len(functions) > 0:
+                    self.interface_blocks[name] = functions
+
+            else:
+                self.get_functions_and_subroutines(i)
+
+
+class TypeNameLister:
+    def __init__(self):
+        self.list_of_typenames = []
+
+    def get_typenames(self, node):
+        if node is None:
+            return
+        if not hasattr(node, "children"):
+            return
+        for i in node.children:
+            if i.__class__.__name__ == "Type_Name":
+                if i.string not in self.list_of_typenames:
+                    self.list_of_typenames.append(i.string)
+            else:
+                self.get_typenames(i)
+
+
+class NameLister:
+    def __init__(self):
+        self.list_of_names = []
+
+    def get_names(self, node):
+        if node is None:
+            return
+        if not hasattr(node, "children"):
+            return
+        for i in node.children:
+            if i.__class__.__name__ == "Name":
+                if i.string not in self.list_of_names:
+                    self.list_of_names.append(i.string)
+            else:
+                self.get_names(i)
+
+
+class DefModuleLister:
+    def __init__(self):
+        self.list_of_modules = []
+
+    def get_defined_modules(self, node):
+        if node is None:
+            return
+        if not hasattr(node, "children"):
+            return
+        for i in node.children:
+            if i.__class__.__name__ == "Module_Stmt":
+                for j in i.children:
+                    if j.__class__.__name__ == "Name":
+                        self.list_of_modules.append(j.string)
+            else:
+                self.get_defined_modules(i)
