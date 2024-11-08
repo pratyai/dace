@@ -2136,12 +2136,10 @@ class AST_translator:
             transient = self.transient_mode
         # find the type
         datatype = self.get_dace_type(node.type)
-        #if hasattr(node, "alloc"):
-        #    if node.alloc:
-        #        self.unallocated_arrays.append([node.name, datatype, sdfg, transient])
-        #        return
+        if hasattr(node, "alloc"):
+            if node.alloc:
+                self.unallocated_arrays.append([node.name, datatype, sdfg, transient])
         # get the dimensions
-        #print(node.name)
         if node.sizes is not None:
             sizes = []
             offset = []
