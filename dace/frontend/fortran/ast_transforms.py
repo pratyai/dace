@@ -897,7 +897,7 @@ class FunctionToSubroutineDefiner(NodeTransformer):
 
     def visit_Function_Subprogram_Node(self, node: ast_internal_classes.Function_Subprogram_Node):
 
-        if node.ret != None:
+        if node.ret is not None:
             ret = node.ret
 
         found = False
@@ -905,7 +905,7 @@ class FunctionToSubroutineDefiner(NodeTransformer):
             for j in node.specification_part.specifications:
 
                 for k in j.vardecl:
-                    if node.ret != None:
+                    if node.ret is not None:
                         if k.name == ret.name:
                             j.vardecl[j.vardecl.index(k)].name = node.name.name + "__ret"
                             found = True
@@ -935,7 +935,7 @@ class FunctionToSubroutineDefiner(NodeTransformer):
                 )
 
         execution_part = NameReplacer(node.name.name, node.name.name + "__ret").visit(node.execution_part)
-        if node.ret != None:
+        if node.ret is not None:
             execution_part = NameReplacer(ret.name.name, node.name.name + "__ret").visit(node.execution_part)
         args = node.args
         args.append(ast_internal_classes.Name_Node(name=node.name.name + "__ret", type=node.type))

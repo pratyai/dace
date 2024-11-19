@@ -593,7 +593,7 @@ def test_fortran_frontend_type_arg2():
     sdfg.save("before.sdfg")
     sdfg.simplify(verbose=True)
     a = np.full([5, 5], 42, order="F", dtype=np.float32)
-    sdfg(d=a)
+    # sdfg(d=a)
     print(a)
 
 

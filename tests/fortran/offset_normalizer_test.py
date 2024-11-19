@@ -2,7 +2,8 @@
 
 import numpy as np
 
-from dace.frontend.fortran import ast_internal_classes, ast_transforms, fortran_parser
+from dace.frontend.fortran import ast_internal_classes, fortran_parser
+
 
 def test_fortran_frontend_offset_normalizer_1d():
     """
@@ -29,7 +30,6 @@ def test_fortran_frontend_offset_normalizer_1d():
     ast, own_ast = fortran_parser.create_ast_from_string(test_string, "index_offset_test", True, True)
 
     for subroutine in ast.subroutine_definitions:
-
         loop = subroutine.execution_part.execution[1]
         idx_assignment = loop.body.execution[1]
         assert idx_assignment.rval.rval.value == "50"
@@ -45,8 +45,9 @@ def test_fortran_frontend_offset_normalizer_1d():
 
     a = np.full([5], 42, order="F", dtype=np.float64)
     sdfg(d=a)
-    for i in range(0,5):
-        assert a[i] == (50+i)* 2
+    for i in range(0, 5):
+        assert a[i] == (50 + i) * 2
+
 
 def test_fortran_frontend_offset_normalizer_1d_symbol():
     """
@@ -77,7 +78,6 @@ def test_fortran_frontend_offset_normalizer_1d_symbol():
     ast, own_ast = fortran_parser.create_ast_from_string(test_string, "index_offset_test", True, True)
 
     for subroutine in ast.subroutine_definitions:
-
         loop = subroutine.execution_part.execution[1]
         idx_assignment = loop.body.execution[1]
         assert isinstance(idx_assignment.rval.rval, ast_internal_classes.Name_Node)
@@ -90,17 +90,18 @@ def test_fortran_frontend_offset_normalizer_1d_symbol():
     sdfg.compile()
 
     from dace.symbolic import evaluate
-    arrsize=50
-    arrsize2=54
+    arrsize = 50
+    arrsize2 = 54
     assert len(sdfg.data('d').shape) == 1
     assert evaluate(sdfg.data('d').shape[0], {'arrsize': arrsize, 'arrsize2': arrsize2}) == 5
 
-    arrsize=50
-    arrsize2=54
-    a = np.full([arrsize2-arrsize+1], 42, order="F", dtype=np.float64)
+    arrsize = 50
+    arrsize2 = 54
+    a = np.full([arrsize2 - arrsize + 1], 42, order="F", dtype=np.float64)
     sdfg(d=a, arrsize=arrsize, arrsize2=arrsize2)
     for i in range(0, arrsize2 - arrsize + 1):
-        assert a[i] == (50+i)* 2
+        assert a[i] == (50 + i) * 2
+
 
 def test_fortran_frontend_offset_normalizer_2d():
     """
@@ -129,7 +130,6 @@ def test_fortran_frontend_offset_normalizer_2d():
     ast, own_ast = fortran_parser.create_ast_from_string(test_string, "index_offset_test", True, True)
 
     for subroutine in ast.subroutine_definitions:
-
         loop = subroutine.execution_part.execution[1]
         nested_loop = loop.body.execution[1]
 
@@ -151,11 +151,12 @@ def test_fortran_frontend_offset_normalizer_2d():
     assert sdfg.data('d').shape[0] == 5
     assert sdfg.data('d').shape[1] == 3
 
-    a = np.full([5,3], 42, order="F", dtype=np.float64)
+    a = np.full([5, 3], 42, order="F", dtype=np.float64)
     sdfg(d=a)
-    for i in range(0,5):
-        for j in range(0,3):
-            assert a[i, j] == (50+i) * 2 + 3 * (7 + j)
+    for i in range(0, 5):
+        for j in range(0, 3):
+            assert a[i, j] == (50 + i) * 2 + 3 * (7 + j)
+
 
 def test_fortran_frontend_offset_normalizer_2d_symbol():
     """
@@ -192,7 +193,6 @@ def test_fortran_frontend_offset_normalizer_2d_symbol():
     ast, own_ast = fortran_parser.create_ast_from_string(test_string, "index_offset_test", True, True)
 
     for subroutine in ast.subroutine_definitions:
-
         loop = subroutine.execution_part.execution[1]
         nested_loop = loop.body.execution[1]
 
@@ -223,11 +223,12 @@ def test_fortran_frontend_offset_normalizer_2d_symbol():
     assert evaluate(sdfg.data('d').shape[0], values) == 5
     assert evaluate(sdfg.data('d').shape[1], values) == 3
 
-    a = np.full([5,3], 42, order="F", dtype=np.float64)
+    a = np.full([5, 3], 42, order="F", dtype=np.float64)
     sdfg(d=a, **values)
-    for i in range(0,5):
-        for j in range(0,3):
-            assert a[i, j] == (50+i) * 2 + 3 * (7 + j)
+    for i in range(0, 5):
+        for j in range(0, 3):
+            assert a[i, j] == (50 + i) * 2 + 3 * (7 + j)
+
 
 def test_fortran_frontend_offset_normalizer_2d_arr2loop():
     """
@@ -254,7 +255,6 @@ def test_fortran_frontend_offset_normalizer_2d_arr2loop():
     ast, own_ast = fortran_parser.create_ast_from_string(test_string, "index_offset_test", True, True)
 
     for subroutine in ast.subroutine_definitions:
-
         loop = subroutine.execution_part.execution[1]
         nested_loop = loop.body.execution[1]
 
@@ -277,11 +277,12 @@ def test_fortran_frontend_offset_normalizer_2d_arr2loop():
     assert sdfg.data('d').shape[0] == 5
     assert sdfg.data('d').shape[1] == 3
 
-    a = np.full([5,3], 42, order="F", dtype=np.float64)
+    a = np.full([5, 3], 42, order="F", dtype=np.float64)
     sdfg(d=a)
-    for i in range(0,5):
-        for j in range(0,3):
+    for i in range(0, 5):
+        for j in range(0, 3):
             assert a[i, j] == (50 + i) * 2
+
 
 def test_fortran_frontend_offset_normalizer_2d_arr2loop_symbol():
     """
@@ -316,7 +317,6 @@ def test_fortran_frontend_offset_normalizer_2d_arr2loop_symbol():
     ast, own_ast = fortran_parser.create_ast_from_string(test_string, "index_offset_test", True, True)
 
     for subroutine in ast.subroutine_definitions:
-
         loop = subroutine.execution_part.execution[1]
         nested_loop = loop.body.execution[1]
 
@@ -347,11 +347,12 @@ def test_fortran_frontend_offset_normalizer_2d_arr2loop_symbol():
     assert evaluate(sdfg.data('d').shape[0], values) == 5
     assert evaluate(sdfg.data('d').shape[1], values) == 3
 
-    a = np.full([5,3], 42, order="F", dtype=np.float64)
+    a = np.full([5, 3], 42, order="F", dtype=np.float64)
     sdfg(d=a, **values)
-    for i in range(0,5):
-        for j in range(0,3):
+    for i in range(0, 5):
+        for j in range(0, 3):
             assert a[i, j] == (50 + i) * 2
+
 
 def test_fortran_frontend_offset_normalizer_struct():
     test_string = """
@@ -412,18 +413,18 @@ def test_fortran_frontend_offset_normalizer_struct():
     assert evaluate(sdfg.data('d').shape[0], values) == 5
     assert evaluate(sdfg.data('d').shape[1], values) == 3
 
-    a = np.full([5,3], 42, order="F", dtype=np.float64)
+    a = np.full([5, 3], 42, order="F", dtype=np.float64)
     sdfg(d=a, **values)
-    for i in range(0,5):
-        for j in range(0,3):
+    for i in range(0, 5):
+        for j in range(0, 3):
             assert a[i, j] == (50 + i) * 2
 
-if __name__ == "__main__":
 
-    #test_fortran_frontend_offset_normalizer_1d()
-    #test_fortran_frontend_offset_normalizer_2d()
-    #test_fortran_frontend_offset_normalizer_2d_arr2loop()
-    #test_fortran_frontend_offset_normalizer_1d_symbol()
-    #test_fortran_frontend_offset_normalizer_2d_symbol()
-    #test_fortran_frontend_offset_normalizer_2d_arr2loop_symbol()
+if __name__ == "__main__":
+    # test_fortran_frontend_offset_normalizer_1d()
+    # test_fortran_frontend_offset_normalizer_2d()
+    # test_fortran_frontend_offset_normalizer_2d_arr2loop()
+    # test_fortran_frontend_offset_normalizer_1d_symbol()
+    # test_fortran_frontend_offset_normalizer_2d_symbol()
+    # test_fortran_frontend_offset_normalizer_2d_arr2loop_symbol()
     test_fortran_frontend_offset_normalizer_struct()

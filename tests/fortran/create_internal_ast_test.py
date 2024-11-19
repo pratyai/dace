@@ -2,7 +2,7 @@
 from typing import Dict
 
 from dace.frontend.fortran.ast_internal_classes import Program_Node, Main_Program_Node, Subroutine_Subprogram_Node, \
-    Module_Node, Specification_Part_Node
+    Module_Node, Specification_Part_Node, Internal_Subprogram_Part_Node, Function_Subprogram_Node
 from dace.frontend.fortran.ast_transforms import Structures, Structure
 from dace.frontend.fortran.fortran_parser import ParseConfig, create_internal_ast
 from tests.fortran.fotran_test_helper import SourceCodeBuilder, InternalASTMatcher as M
@@ -211,22 +211,20 @@ end program main
                 M(Subroutine_Subprogram_Node, {
                     'name': M.NAMED('fun'),
                     'args': [M.NAMED('d')],
+                    'internal_subprogram_part': M(Internal_Subprogram_Part_Node, {
+                        'function_definitions': [
+                            M(Function_Subprogram_Node, {
+                                'name': M.NAMED('fun2'),
+                                'args': [],
+                            }),
+                        ],
+                    }),
                 }),
             ],
         }, has_empty_attr={'function_definitions', 'interface_blocks'})],
         'structures': M(Structures, has_empty_attr={'structures'})
     }, has_empty_attr={'function_definitions', 'subroutine_definitions', 'placeholders', 'placeholders_offsets'})
     m.check(prog)
-
-    # TODO: We cannot handle during the internal AST construction (it works just fine before during parsing etc.) when a
-    #  subroutine contains other subroutines. This needs to be fixed.
-    mod = prog.modules[0]
-    # Where could `fun2`'s definition could be?
-    assert not mod.function_definitions  # Not here!
-    assert 'fun2' not in [f.name.name for f in mod.subroutine_definitions]  # Not here!
-    fn = mod.subroutine_definitions[0]
-    assert not hasattr(fn, 'function_definitions')  # Not here!
-    assert not hasattr(fn, 'subroutine_definitions')  # Not here!
 
 
 def test_module_contains_types():

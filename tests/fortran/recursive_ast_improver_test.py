@@ -1,4 +1,5 @@
 # Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
+import os
 from typing import Dict
 
 import networkx as nx
@@ -7,7 +8,7 @@ from fparser.two.Fortran2003 import Program, Name
 from fparser.two.parser import ParserFactory
 
 from dace.frontend.fortran.fortran_parser import recursive_ast_improver, simplified_dependency_graph, \
-    make_identifiers_lower_case, deconstruct_procedure_calls
+    make_identifiers_lower_case, deconstruct_procedure_calls, create_sdfg_from_fortran_file_with_options
 from tests.fortran.fotran_test_helper import SourceCodeBuilder
 
 

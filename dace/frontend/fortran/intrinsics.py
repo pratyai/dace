@@ -3,12 +3,15 @@ import math
 import sys
 from abc import abstractmethod
 from collections import namedtuple
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Set, Tuple, Type
 
 from dace.frontend.fortran import ast_internal_classes
 from dace.frontend.fortran.ast_transforms import NodeVisitor, NodeTransformer, ParentScopeAssigner, \
     ScopeVarsDeclarations, par_Decl_Range_Finder, mywalk
 from dace.frontend.fortran.ast_utils import fortrantypes2dacetypes
+from dace.frontend.fortran.ast_transforms import NodeVisitor, NodeTransformer, ParentScopeAssigner, \
+    ScopeVarsDeclarations, par_Decl_Range_Finder, mywalk
+
 from dace.libraries.blas.nodes.dot import dot_libnode
 from dace.sdfg import SDFGState, SDFG, nodes
 from dace.sdfg.graph import OrderedDiGraph
