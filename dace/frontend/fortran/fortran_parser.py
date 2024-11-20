@@ -2100,20 +2100,13 @@ class AST_translator:
         hasret = False
         for fsname in self.functions_and_subroutines:
             if fsname.name == node.name.name:
-
-                for i in self.top_level.function_definitions:
-                    if i.name.name == node.name.name:
-                        self.function2sdfg(i, sdfg)
-                        return
+                assert not self.top_level.function_definitions
                 for i in self.top_level.subroutine_definitions:
                     if i.name.name == node.name.name:
                         self.subroutine2sdfg(i, sdfg)
                         return
                 for j in self.top_level.modules:
-                    for i in j.function_definitions:
-                        if i.name.name == node.name.name:
-                            self.function2sdfg(i, sdfg)
-                            return
+                    assert not j.function_definitions
                     for i in j.subroutine_definitions:
                         if i.name.name == node.name.name:
                             self.subroutine2sdfg(i, sdfg)

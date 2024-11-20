@@ -204,7 +204,6 @@ class Flatten_Classes(NodeTransformer):
 
     def visit_Subroutine_Subprogram_Node(self, node: ast_internal_classes.Subroutine_Subprogram_Node):
         new_node = self.generic_visit(node)
-        print("Subroutine: ", node.name.name)
         if self.current_class is not None:
             for i in self.classes:
                 if i.is_class is True:
@@ -740,14 +739,13 @@ class ArgumentExtractorNodeLister(NodeVisitor):
             "malloc", "pow", "cbrt", "__dace_epsilon", *FortranIntrinsics.call_extraction_exemptions()
         ]:
             for i in node.args:
-                if isinstance(i, ast_internal_classes.Name_Node) or isinstance(i,
-                                                                               ast_internal_classes.Literal) or isinstance(
-                        i, ast_internal_classes.Array_Subscript_Node) or isinstance(i,
-                                                                                    ast_internal_classes.Data_Ref_Node) or isinstance(
-                        i, ast_internal_classes.Actual_Arg_Spec_Node):
+                if isinstance(i, (ast_internal_classes.Name_Node,
+                                  ast_internal_classes.Literal,
+                                  ast_internal_classes.Array_Subscript_Node,
+                                  ast_internal_classes.Data_Ref_Node,
+                                  ast_internal_classes.Actual_Arg_Spec_Node)):
                     continue
-                else:
-                    self.nodes.append(i)
+                self.nodes.append(i)
         return self.generic_visit(node)
 
     def visit_Execution_Part_Node(self, node: ast_internal_classes.Execution_Part_Node):
@@ -787,11 +785,11 @@ class ArgumentExtractor(NodeTransformer):
                                                      line_number=node.line_number)
         for i, arg in enumerate(node.args):
             # Ensure we allow to extract function calls from arguments
-            if isinstance(arg, ast_internal_classes.Name_Node) or isinstance(arg,
-                                                                             ast_internal_classes.Literal) or isinstance(
-                    arg, ast_internal_classes.Array_Subscript_Node) or isinstance(arg,
-                                                                                  ast_internal_classes.Data_Ref_Node) or isinstance(
-                    arg, ast_internal_classes.Actual_Arg_Spec_Node):
+            if isinstance(arg, (ast_internal_classes.Name_Node,
+                                ast_internal_classes.Literal,
+                                ast_internal_classes.Array_Subscript_Node,
+                                ast_internal_classes.Data_Ref_Node,
+                                ast_internal_classes.Actual_Arg_Spec_Node)):
                 result.args.append(arg)
             else:
                 result.args.append(ast_internal_classes.Name_Node(name="tmp_arg_" + str(tmp), type='VOID'))
@@ -1616,7 +1614,7 @@ class OptionalArgsTransformer(NodeTransformer):
                 elif dtype == 'DOUBLE':
                     new_args[i] = ast_internal_classes.Real_Literal_Node(value='0')
                 elif dtype == 'CHAR':
-                    new_args[i] = ast_internal_classes.Char_Literal_Node(value='0')    
+                    new_args[i] = ast_internal_classes.Char_Literal_Node(value='0')
                 else:
                     raise NotImplementedError()
                 new_args[i + optional_args] = ast_internal_classes.Bool_Literal_Node(value='0')
@@ -2477,7 +2475,7 @@ class PointerRemoval(NodeTransformer):
         for child in node.execution:
 
             if isinstance(child, ast_internal_classes.Pointer_Assignment_Stmt_Node):
-                self.nodes[child.name_pointer.name] = child.name_target
+                self.nodes[child.name_target.name] = child.name_target
             else:
                 newbody.append(self.visit(child))
 

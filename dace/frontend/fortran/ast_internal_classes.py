@@ -267,6 +267,11 @@ class Name_Node(FNode):
     _fields = ()
 
 
+class Rename_Node(FNode):
+    _attributes = ()
+    _fields = ('oldname', 'newname',)
+
+
 class Name_Range_Node(FNode):
     _attributes = ('name', 'type', 'arrname', 'pos')
     _fields = ()
@@ -485,6 +490,11 @@ class Data_Component_Def_Stmt_Node(FNode):
 
 
 class Data_Ref_Node(FNode):
+    def __init__(self, parent_ref: Optional[FNode], part_ref: Optional[FNode], **kwargs):
+        super().__init__(**kwargs)
+        self.parent_ref = parent_ref
+        self.part_ref = part_ref
+
     _attributes = ()
     _fields = ('parent_ref', 'part_ref')
 
@@ -708,13 +718,13 @@ class Else_If_Stmt_Node(FNode):
 
 
 class Only_List_Node(FNode):
+    def __init__(self, names: List[Name_Node], renames: List['Rename_Node'], **kwargs):
+        super().__init__(**kwargs)
+        self.names = names
+        self.renames = renames
+
     _attributes = ()
     _fields = ('names', 'renames',)
-
-
-class Rename_Node(FNode):
-    _attributes = ()
-    _fields = ('oldname', 'newname',)
 
 
 class ParDecl_Node(FNode):
@@ -728,6 +738,12 @@ class Structure_Constructor_Node(FNode):
 
 
 class Use_Stmt_Node(FNode):
+    def __init__(self, name: str, list: List[Union[Name_Node, Rename_Node]], list_all: bool, **kwargs):
+        super().__init__(**kwargs)
+        self.name = name
+        self.list = list
+        self.list_all = list_all
+
     _attributes = ('name', 'list_all')
     _fields = ('list',)
 
