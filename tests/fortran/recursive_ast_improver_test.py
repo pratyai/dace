@@ -7,7 +7,7 @@ from fparser.two.Fortran2003 import Program, Name
 from fparser.two.parser import ParserFactory
 
 from dace.frontend.fortran.fortran_parser import recursive_ast_improver, simplified_dependency_graph, \
-    deconstruct_procedure_calls
+    make_identifiers_lower_case, deconstruct_procedure_calls
 from tests.fortran.fotran_test_helper import SourceCodeBuilder
 
 
@@ -15,7 +15,7 @@ def parse_and_improve(sources: Dict[str, str]):
     parser = ParserFactory().create(std="f2008")
     assert 'main.f90' in sources
     reader = FortranStringReader(sources['main.f90'])
-    ast = parser(reader)
+    ast = make_identifiers_lower_case(parser(reader))
     assert isinstance(ast, Program)
 
     ast, dep_graph, interface_blocks, asts = recursive_ast_improver(ast, sources, [], parser)
@@ -765,3 +765,83 @@ END PROGRAM main
     simple_graph, actually_used_in_module = simplified_dependency_graph(dep_graph.copy(), interface_blocks)
     assert not set(simple_graph.nodes)
     assert not actually_used_in_module
+
+
+def test_lower_case():
+    """
+    One of the earlier tests, but now all the identifiers are capitalized. But the parser should convert them anyway.
+    """
+    sources, main = SourceCodeBuilder().add_file("""
+module LIB
+contains
+  subroutine FUN(d)
+    implicit none
+    DoUbLe PrEcIsIoN D(4)
+    D(2) = 5.5
+  end subroutine FUN
+end module lib
+""").add_file("""
+program MAIN
+  use LIB
+  implicit none
+  DoUbLe PrEcIsIoN D(4)
+  call FUN(d)
+end program MAIN
+""").check_with_gfortran().get()
+    ast, dep_graph, interface_blocks, asts = parse_and_improve(sources)
+
+    got = ast.tofortran()
+    want = """
+MODULE lib
+  CONTAINS
+  SUBROUTINE fun(d)
+    IMPLICIT NONE
+    DOUBLE PRECISION :: d(4)
+    d(2) = 5.5
+  END SUBROUTINE fun
+END MODULE lib
+PROGRAM main
+  USE lib
+  IMPLICIT NONE
+  DOUBLE PRECISION :: d(4)
+  CALL fun(d)
+END PROGRAM main
+""".strip()
+    assert got == want
+    SourceCodeBuilder().add_file(got).check_with_gfortran()
+
+    # This time we have a module dependency.
+    assert set(dep_graph.nodes) == {'lib', 'main'}
+    assert set(dep_graph.edges) == {('main', 'lib')}
+    assert set(asts.keys()) == {'lib'}
+
+    # Verify that there is not much else to the program.
+    assert not interface_blocks
+
+    # Verify simplification of the dependency graph.
+    simple_graph, actually_used_in_module = simplified_dependency_graph(dep_graph.copy(), interface_blocks)
+    assert set(simple_graph.nodes) == {'main', 'lib'}
+    assert set(simple_graph.edges) == {('main', 'lib')}
+    assert actually_used_in_module == {'lib': ['fun'], 'main': []}
+
+
+def find_path_recursive(base_dir):
+    dirs = os.listdir(base_dir)
+    fortran_files = []
+    for path in dirs:
+        if os.path.isdir(os.path.join(base_dir, path)):
+            fortran_files.extend(find_path_recursive(os.path.join(base_dir, path)))
+        if os.path.isfile(os.path.join(base_dir, path)) and (path.endswith(".F90") or path.endswith(".f90")):
+            fortran_files.append(os.path.join(base_dir, path))
+    return fortran_files
+
+
+def test_me():
+    ROOT = '/Users/pmz/Downloads/ecrad'
+    FORTRAN_FILES = find_path_recursive(f"{ROOT}")
+    create_sdfg_from_fortran_file_with_options(
+        f"{ROOT}/ifs/yoe_spectral_planck.F90",
+        FORTRAN_FILES,
+        [f"{ROOT}/include"],
+        ROOT,
+        True)

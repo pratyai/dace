@@ -2537,7 +2537,7 @@ class ParseConfig:
 
 def create_internal_ast(cfg: ParseConfig) -> Tuple[ast_components.InternalFortranAst, FNode]:
     parser = ParserFactory().create(std="f2008")
-    ast = parser(cfg.main)
+    ast = make_identifiers_lower_case(parser(cfg.main))
     assert isinstance(ast, Program)
 
     ast, dep_graph, interface_blocks, asts = recursive_ast_improver(ast, cfg.sources, cfg.includes, parser)
@@ -2980,7 +2980,17 @@ def deconstruct_procedure_calls(ast: Program, dep_graph: nx.DiGraph) -> (Program
     return ast, dep_graph
 
 
-def recursive_ast_improver(ast: Base, source_list: Union[List, Dict], include_list, parser):
+def make_identifiers_lower_case(ast: Base):
+    """
+    Makes all the identifiers in the AST lower case.
+    """
+    names = chain(ast_utils.list_descendent_names_nodes(ast), ast_utils.list_descendent_typename_nodes(ast))
+    for n in names:
+        n.string = n.string.lower()
+    return ast
+
+
+def recursive_ast_improver(ast, source_list: Union[List, Dict], include_list, parser):
     dep_graph = nx.DiGraph()
     asts = {}
     interface_blocks: Dict[str, Dict[str, List[Name]]] = {}
@@ -3047,10 +3057,9 @@ def recursive_ast_improver(ast: Base, source_list: Union[List, Dict], include_li
 
             if isinstance(source_list, dict):
                 reader = fsr(source_list[mod_file])
-                next_ast = parser(reader)
             else:
                 reader = ffr(file_candidate=mod_file, include_dirs=include_list, source_only=source_list)
-                next_ast = parser(reader)
+            next_ast = make_identifiers_lower_case(parser(reader))
 
             _recursive_ast_improver(next_ast)
 
@@ -3379,7 +3388,7 @@ def create_sdfg_from_fortran_file_with_options(source_string: str, source_list, 
                     if jj.lower() in res.list_of_types:
                         if jj.lower() not in type_list:
                             type_list.append(jj.lower())
-                            
+
         print("Module " + i + " used names: " + str(parse_list[i]))
         if len(fands_list) > 0:
             print("Module " + i + " used fands: " + str(fands_list))
@@ -3477,12 +3486,12 @@ def create_sdfg_from_fortran_file_with_options(source_string: str, source_list, 
             if i.children[0].children[1].string.lower() != top_level_ast:
                 for j in i.children[2].children:
                     if j.__class__.__name__ != "Contains_Stmt":
-                        
+
                         if j.children[0].children[1].string.lower() in what_to_parse_list[
                             i.children[0].children[1].string.lower()]:
                             subroutinesandfunctions.append(j)
                         else:
-                            print("Removing " + j.children[0].children[1].string + " from module " + i.children[0].children[1].string)    
+                            print("Removing " + j.children[0].children[1].string + " from module " + i.children[0].children[1].string)
                 i.children[2].children.clear()
                 for j in subroutinesandfunctions:
                     i.children[2].children.append(j)
@@ -3688,11 +3697,11 @@ def create_sdfg_from_fortran_file_with_options(source_string: str, source_list, 
         step += 1
 
     unusedFunctionFinder = ast_transforms.FindUnusedFunctions("radiation",parse_order)
-    unusedFunctionFinder.visit(program)    
+    unusedFunctionFinder.visit(program)
     used_funcs=unusedFunctionFinder.used_names
     needed=[]
     current_list=used_funcs['radiation']
-    current_list+='radiation'   
+    current_list+='radiation'
     needed.append(['radiation_interface','radiation'])
     skip_list=['radiation_monochromatic','radiation_cloudless_sw',
                'radiation_tripleclods_sw','radiation_homogeneous_sw']
@@ -3701,12 +3710,12 @@ def create_sdfg_from_fortran_file_with_options(source_string: str, source_list, 
             if j.name.name in skip_list:
                 continue
             if j.name.name==i:
-                
+
                 for k in j.subroutine_definitions:
                     if k.name.name in current_list:
                         current_list+=used_funcs[k.name.name]
                         needed.append([j.name.name,k.name.name])
-     
+
     for i in program.modules:
         subroutines = []
         for j in needed:

@@ -854,30 +854,38 @@ class FunctionSubroutineLister:
                 self.get_functions_and_subroutines(i)
 
 
-def list_descendent_typenames(node: Base) -> List[str]:
-    def _list_descendent_typenames(_node: Base, _list_of_names: List[str]) -> List[str]:
+def list_descendent_typename_nodes(node: Base) -> List[Type_Name]:
+    def _list_descendent_typename_nodes(_node: Base, _list_of_names: List[Type_Name]) -> List[Type_Name]:
         for c in _node.children:
             if isinstance(c, Type_Name):
                 if c.string not in _list_of_names:
-                    _list_of_names.append(c.string)
+                    _list_of_names.append(c)
             elif isinstance(c, Base):
-                _list_descendent_typenames(c, _list_of_names)
+                _list_descendent_typename_nodes(c, _list_of_names)
         return _list_of_names
 
-    return _list_descendent_typenames(node, [])
+    return _list_descendent_typename_nodes(node, [])
 
 
-def list_descendent_names(node: Base) -> List[str]:
-    def _list_descendent_names(_node: Base, _list_of_names: List[str]) -> List[str]:
+def list_descendent_typenames(node: Base) -> List[str]:
+    return [n.string for n in list_descendent_typename_nodes(node)]
+
+
+def list_descendent_names_nodes(node: Base) -> List[Name]:
+    def _list_descendent_names_nodes(_node: Base, _list_of_names: List[Name]) -> List[Name]:
         for c in _node.children:
             if isinstance(c, Name):
                 if c.string not in _list_of_names:
-                    _list_of_names.append(c.string)
+                    _list_of_names.append(c)
             elif isinstance(c, Base):
-                _list_descendent_names(c, _list_of_names)
+                _list_descendent_names_nodes(c, _list_of_names)
         return _list_of_names
 
-    return _list_descendent_names(node, [])
+    return _list_descendent_names_nodes(node, [])
+
+
+def list_descendent_names(node: Base) -> List[str]:
+    return [n.string for n in list_descendent_names_nodes(node)]
 
 
 def get_defined_modules(node: Base) -> List[str]:
