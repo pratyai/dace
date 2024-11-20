@@ -880,7 +880,7 @@ class InternalFortranAst:
         function_definitions = [i for i in children if isinstance(i, ast_internal_classes.Function_Subprogram_Node)]
         subroutine_definitions = [i for i in children if isinstance(i, ast_internal_classes.Subroutine_Subprogram_Node)]
         return ast_internal_classes.Internal_Subprogram_Part_Node(function_definitions=function_definitions,
-                                                                subroutine_definitions=subroutine_definitions)
+                                                                  subroutine_definitions=subroutine_definitions)
 
     def interface_block(self, node: FASTNode):
         children = self.create_children(node)
@@ -944,9 +944,8 @@ class InternalFortranAst:
         children = self.create_children(node)
         name = get_child(children, ast_internal_classes.Name_Node)
         only_list = get_child(children, ast_internal_classes.Only_List_Node)
-        if only_list is None:
-            return ast_internal_classes.Use_Stmt_Node(name=name.name, list=None, list_all=True)
-        return ast_internal_classes.Use_Stmt_Node(name=name.name, list=only_list.names, list_all=False)
+        list_content, list_all = (only_list.names + only_list.renames, False) if only_list else (None, True)
+        return ast_internal_classes.Use_Stmt_Node(name=name.name, list=list_content, list_all=list_all)
 
     def implicit_part(self, node: FASTNode):
         return node
@@ -1078,63 +1077,26 @@ class InternalFortranAst:
             return None, [], None
 
     def type_declaration_stmt(self, node: FASTNode):
-
         # decide if it's an intrinsic variable type or a derived type
-
         type_of_node = get_child(node, [f03.Intrinsic_Type_Spec, f03.Declaration_Type_Spec])
-        # if node.children[2].children[0].children[0].string.lower() =="BOUNDARY_MISSVAL".lower():
-        #    print("found boundary missval")
+        assert isinstance(type_of_node, (f03.Intrinsic_Type_Spec, f03.Declaration_Type_Spec)), \
+            f"type of node must be either Intrinsic_Type_Spec or Declaration_Type_Spec, got: {type_of_node}"
         if isinstance(type_of_node, f03.Intrinsic_Type_Spec):
-            derived_type = False
-            basetype = type_of_node.items[0]
-        elif isinstance(type_of_node, f03.Declaration_Type_Spec):
-            if type_of_node.items[0].lower() == "class":
-                basetype = "CLASS"
-                basetype = type_of_node.items[1].string
-                derived_type = True
-            else:
-                derived_type = True
-                basetype = type_of_node.items[1].string
+            basetype, derived_type = type_of_node.items[0], False
         else:
-            raise TypeError("Type of node must be either Intrinsic_Type_Spec or Declaration_Type_Spec")
+            basetype, derived_type = type_of_node.items[1].string, True
         kind = None
-        size_later = False
-        if len(type_of_node.items) >= 2:
-            if type_of_node.items[1] is not None:
-                if not derived_type:
-                    if basetype == "CLASS":
-                        kind = "CLASS"
-                    elif basetype == "CHARACTER":
-                        kind = type_of_node.items[1].items[1].string.lower()
-                        if kind == "*":
-                            size_later = True
-                    else:
-                        kind = type_of_node.items[1].items[1].string.lower()
-                        if self.symbols[kind] is not None:
-                            if basetype == "REAL":
-                                while hasattr(self.symbols[kind], "name"):
-                                    kind = self.symbols[kind].name
-                                if self.symbols[kind].value == "8":
-                                    basetype = "REAL8"
-                            elif basetype == "INTEGER":
-                                while hasattr(self.symbols[kind], "name"):
-                                    kind = self.symbols[kind].name
-                                if self.symbols[kind].value == "4":
-                                    basetype = "INTEGER"
-                            else:
-                                raise TypeError("Derived type not supported")
-
-                # if derived_type:
-                #    raise TypeError("Derived type not supported")
-        if not derived_type:
-            testtype = self.types[basetype]
-        else:
-
-            testtype = basetype
+        if len(type_of_node.items) >= 2 and type_of_node.items[1] is not None and not derived_type:
+            kind = 'CLASS' if basetype == 'CLASS' else type_of_node.items[1].items[1].string.lower()
+            if basetype not in {'CLASS', 'CHARACTER'} and self.symbols[kind] is not None:
+                assert basetype in {'REAL', 'INTEGER'}, f"only real and integer types are supported, got: {basetype}"
+                while hasattr(self.symbols[kind], "name"):
+                    kind = self.symbols[kind].name
+                if basetype == "REAL" and self.symbols[kind].value == "8":
+                    basetype = "REAL8"
 
         # get the names of the variables being defined
         names_list = get_child(node, ["Entity_Decl_List", "Component_Decl_List"])
-
         # get the names out of the name list
         names = get_children(names_list, [f03.Entity_Decl, f03.Component_Decl])
 
@@ -1146,87 +1108,48 @@ class InternalFortranAst:
         if len(attributes) != 0 and len(comp_attributes) != 0:
             raise TypeError("Attributes must be either in Attr_Spec_List or Component_Attr_Spec_List not both")
 
-        alloc = False
-        symbol = False
-        optional = False
-        attr_size = None
-        attr_offset = None
+        alloc, symbol, optional = False, False, None
+        attr_size, attr_offset = None, None
         assumed_vardecls = []
         for i in attributes + comp_attributes:
-
-            if i.string.lower() == "allocatable":
+            if i.string.lower() in {'allocatable', 'pointer'}:
                 alloc = True
             if i.string.lower() == "parameter":
                 symbol = True
-            if i.string.lower() == "pointer":
-                alloc = True
             if i.string.lower() == "optional":
                 optional = True
 
+            if not isinstance(i, (f08.Attr_Spec_List, f08.Component_Attr_Spec_List)):
+                continue
             if isinstance(i, f08.Attr_Spec_List):
-
                 specification = get_children(i, "Attr_Spec")
-                for spec in specification:
-                    if spec.string.lower() == "optional":
-                        optional = True
-
                 dimension_spec = get_children(i, "Dimension_Attr_Spec")
-                if len(dimension_spec) == 0:
-                    continue
-
-                attr_size = []
-                attr_offset = []
-                sizes = get_child(dimension_spec[0], ["Explicit_Shape_Spec_List"])
-
-                if sizes is not None:
-                    for shape_spec in get_children(sizes, [f03.Explicit_Shape_Spec]):
-                        self.parse_shape_specification(shape_spec, attr_size, attr_offset)
-                    # we expect a list of lists, where each element correspond to list of symbols for each array name
-                    attr_size = [attr_size] * len(names)
-                    attr_offset = [attr_offset] * len(names)
-                else:
-                    attr_size, assumed_vardecls, attr_offset = self.assumed_array_shape(dimension_spec[0], names,
-                                                                                        node.item.span)
-
-                    if attr_size is None:
-                        raise RuntimeError("Couldn't parse the dimension attribute specification!")
-
-            if isinstance(i, f08.Component_Attr_Spec_List):
-
+            else:
                 specification = get_children(i, "Component_Attr_Spec")
-                for spec in specification:
-                    if spec.string.lower() == "optional":
-                        optional = True
-
                 dimension_spec = get_children(i, "Dimension_Component_Attr_Spec")
-                if len(dimension_spec) == 0:
-                    continue
+            for spec in specification:
+                if spec.string.lower() == "optional":
+                    optional = True
+            if not dimension_spec:
+                continue
 
-                attr_size = []
-                attr_offset = []
-                sizes = get_child(dimension_spec[0], ["Explicit_Shape_Spec_List"])
-                # if sizes is None:
-                #    sizes = get_child(dimension_spec[0], ["Deferred_Shape_Spec_List"])
-
-                if sizes is not None:
-                    for shape_spec in get_children(sizes, [f03.Explicit_Shape_Spec]):
-                        self.parse_shape_specification(shape_spec, attr_size, attr_offset)
-                    # we expect a list of lists, where each element correspond to list of symbols for each array name
-                    attr_size = [attr_size] * len(names)
-                    attr_offset = [attr_offset] * len(names)
-                else:
-                    attr_size, assumed_vardecls, attr_offset = self.assumed_array_shape(dimension_spec[0], names,
-                                                                                        node.item.span)
-                    if attr_size is None:
-                        raise RuntimeError("Couldn't parse the dimension attribute specification!")
-
+            attr_size, attr_offset = [], []
+            sizes = get_child(dimension_spec[0], ["Explicit_Shape_Spec_List"])
+            if sizes is not None:
+                for shape_spec in get_children(sizes, [f03.Explicit_Shape_Spec]):
+                    self.parse_shape_specification(shape_spec, attr_size, attr_offset)
+                # we expect a list of lists, where each element correspond to list of symbols for each array name
+                attr_size = [attr_size] * len(names)
+                attr_offset = [attr_offset] * len(names)
+            else:
+                attr_size, assumed_vardecls, attr_offset = self.assumed_array_shape(dimension_spec[0], names,
+                                                                                    node.item.span)
+                assert attr_size is not None, f"Couldn't parse the dimension attribute specification!"
         vardecls = [*assumed_vardecls]
 
         for idx, var in enumerate(names):
-            # print(self.name_list)
             # first handle dimensions
-            size = None
-            offset = None
+            size, offset = None, None
             var_components = self.create_children(var)
             array_sizes = get_children(var, "Explicit_Shape_Spec_List")
             actual_name = get_child(var_components, ast_internal_classes.Name_Node)
@@ -1234,16 +1157,13 @@ class InternalFortranAst:
             #    return
             if len(array_sizes) == 1:
                 array_sizes = array_sizes[0]
-                size = []
-                offset = []
+                size, offset = [], []
                 for dim in array_sizes.children:
                     # sanity check
                     if isinstance(dim, f03.Explicit_Shape_Spec):
                         self.parse_shape_specification(dim, size, offset)
-
             # handle initializiation
             init = None
-
             initialization = get_children(var, f03.Initialization)
             if len(initialization) == 1:
                 initialization = initialization[0]
@@ -1259,13 +1179,12 @@ class InternalFortranAst:
                     init = self.create_ast(raw_init)
             # if size_later:
             #    size.append(len(init))
-            if testtype != "INTEGER": symbol = False
-            if symbol == False:
-
+            testtype = basetype if derived_type else self.types[basetype]
+            if testtype != "INTEGER":
+                symbol = False
+            if not symbol:
                 if attr_size is None:
-
                     if size is None:
-
                         size, assumed_vardecls, offset = self.assumed_array_shape(var, actual_name.name, node.item.span)
                         if size is None:
                             offset = None
@@ -1275,28 +1194,18 @@ class InternalFortranAst:
                             offset = offset[0]
                             # offset = [1] * len(size)
                         vardecls.extend(assumed_vardecls)
-
-                    vardecls.append(
-                        ast_internal_classes.Var_Decl_Node(name=actual_name.name,
-                                                           type=testtype,
-                                                           alloc=alloc,
-                                                           sizes=size,
-                                                           offsets=offset,
-                                                           kind=kind,
-                                                           init=init,
-                                                           optional=optional,
-                                                           line_number=node.item.span))
                 else:
-                    vardecls.append(
-                        ast_internal_classes.Var_Decl_Node(name=actual_name.name,
-                                                           type=testtype,
-                                                           alloc=alloc,
-                                                           sizes=attr_size[idx],
-                                                           offsets=attr_offset[idx],
-                                                           kind=kind,
-                                                           init=init,
-                                                           optional=optional,
-                                                           line_number=node.item.span))
+                    size, offset = attr_size[idx], attr_offset[idx]
+                vardecls.append(
+                    ast_internal_classes.Var_Decl_Node(name=actual_name.name,
+                                                       type=testtype,
+                                                       alloc=alloc,
+                                                       sizes=size,
+                                                       offsets=offset,
+                                                       kind=kind,
+                                                       init=init,
+                                                       optional=optional,
+                                                       line_number=node.item.span))
             else:
                 if size is None and attr_size is None:
                     self.symbols[actual_name.name] = init
@@ -1307,18 +1216,9 @@ class InternalFortranAst:
                                                               init=init,
                                                               optional=optional,
                                                               line_number=node.item.span))
-                elif attr_size is not None:
-                    vardecls.append(
-                        ast_internal_classes.Symbol_Array_Decl_Node(name=actual_name.name,
-                                                                    type=testtype,
-                                                                    alloc=alloc,
-                                                                    sizes=attr_size,
-                                                                    offsets=attr_offset,
-                                                                    kind=kind,
-                                                                    init=init,
-                                                                    optional=optional,
-                                                                    line_number=node.item.span))
                 else:
+                    if attr_size is not None:
+                        size, offset = attr_size, attr_offset
                     vardecls.append(
                         ast_internal_classes.Symbol_Array_Decl_Node(name=actual_name.name,
                                                                     type=testtype,
