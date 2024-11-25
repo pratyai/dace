@@ -364,24 +364,19 @@ def finish_add_state_to_sdfg(state: SDFGState, top_sdfg: SDFG, substate: SDFGSta
     state.last_sdfg_states[top_sdfg] = substate
 
 
-def get_name(node: ast_internal_classes.FNode):
+def get_name(node: Union[
+    ast_internal_classes.Name_Node,
+    ast_internal_classes.Array_Subscript_Node,
+    ast_internal_classes.Data_Ref_Node]):
+    assert isinstance(node, (ast_internal_classes.Name_Node,
+                             ast_internal_classes.Array_Subscript_Node,
+                             ast_internal_classes.Data_Ref_Node))
     if isinstance(node, ast_internal_classes.Name_Node):
         return node.name
     elif isinstance(node, ast_internal_classes.Array_Subscript_Node):
         return node.name.name
     elif isinstance(node, ast_internal_classes.Data_Ref_Node):
-        view_name = node.parent_ref.name
-        while isinstance(node.part_ref, ast_internal_classes.Data_Ref_Node):
-            if isinstance(node.part_ref.parent_ref, ast_internal_classes.Name_Node):
-                view_name = view_name + "_" + node.part_ref.parent_ref.name
-            elif isinstance(node.part_ref.parent_ref, ast_internal_classes.Array_Subscript_Node):
-                view_name = view_name + "_" + node.part_ref.parent_ref.name.name
-            node = node.part_ref
-        view_name = view_name + "_" + get_name(node.part_ref)
-        return view_name
-
-    else:
-        raise NameError("Name not found")
+        return node.view_name()
 
 
 class TaskletWriter:

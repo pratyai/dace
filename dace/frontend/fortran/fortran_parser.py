@@ -507,21 +507,6 @@ class AST_translator:
             shapenames = [sdfg.arrays[self.name_mapping[sdfg][node.name_pointer.name]].shape[i] for i in
                           range(len(sdfg.arrays[self.name_mapping[sdfg][node.name_pointer.name]].shape))]
             offsetnames = self.actual_offsets_per_sdfg[sdfg][node.name_pointer.name]
-            [sdfg.arrays[self.name_mapping[sdfg][node.name_pointer.name]].offset[i] for i in
-             range(len(sdfg.arrays[self.name_mapping[sdfg][node.name_pointer.name]].offset))]
-            # for i in shapenames:
-            #    if str(i) in sdfg.symbols:
-            #        sdfg.symbols.pop(str(i))
-            # if sdfg.parent_nsdfg_node is not None:
-            # if str(i) in sdfg.parent_nsdfg_node.symbol_mapping:
-            # sdfg.parent_nsdfg_node.symbol_mapping.pop(str(i))
-
-            # for i in offsetnames:
-            # if str(i) in sdfg.symbols:
-            #    sdfg.symbols.pop(str(i))
-            # if sdfg.parent_nsdfg_node is not None:
-            # if str(i) in sdfg.parent_nsdfg_node.symbol_mapping:
-            # sdfg.parent_nsdfg_node.symbol_mapping.pop(str(i))
             sdfg.arrays.pop(self.name_mapping[sdfg][node.name_pointer.name])
         if isinstance(node.name_target, ast_internal_classes.Data_Ref_Node):
             if node.name_target.parent_ref.name not in self.name_mapping[sdfg]:
@@ -2582,6 +2567,8 @@ def create_sdfg_from_internal_ast(own_ast: ast_components.InternalFortranAst, pr
     program = ast_transforms.PointerRemoval().visit(program)
     program = ast_transforms.ElementalFunctionExpander(
         ast_transforms.FindFunctionAndSubroutines.from_node(program).names).visit(program)
+    program = ast_transforms.FlattenDerivedTypes().destruct(program)
+
     for i in program.modules:
         count = 0
         for j in i.function_definitions:
@@ -2635,20 +2622,18 @@ def create_sdfg_from_internal_ast(own_ast: ast_components.InternalFortranAst, pr
         for i in cycle:
             is_pointer = struct_dep_graph.get_edge_data(i, cycle[(cycle.index(i) + 1) % len(cycle)])["pointing"]
             point_name = struct_dep_graph.get_edge_data(i, cycle[(cycle.index(i) + 1) % len(cycle)])["point_name"]
-            # print(i,is_pointer)
             if is_pointer:
                 actually_used_pointer_node_finder = ast_transforms.StructPointerChecker(i, cycle[
-                    (cycle.index(i) + 1) % len(cycle)], point_name)
+                    (cycle.index(i) + 1) % len(cycle)], point_name, structs_lister, struct_dep_graph, 'full')
                 actually_used_pointer_node_finder.visit(program)
-                # print(actually_used_pointer_node_finder.nodes)
                 if len(actually_used_pointer_node_finder.nodes) == 0:
-                    print("We can ignore this cycle")
                     program = ast_transforms.StructPointerEliminator(i, cycle[(cycle.index(i) + 1) % len(cycle)],
                                                                      point_name).visit(program)
                 else:
                     cycles_we_cannot_ignore.append(cycle)
-    if len(cycles_we_cannot_ignore) > 0:
-        raise NameError("Structs have cyclic dependencies")
+    assert not cycles_we_cannot_ignore, f"Structs have cyclic dependencies: {cycles_we_cannot_ignore}"
+    program = ast_transforms.Flatten_Classes(structs_lister.structs).visit(program)
+    program.structures = ast_transforms.Structures(structs_lister.structs)
 
     # TODO: `ArgumentPruner` does not cleanly remove arguments (and it's not entirely clear that arguments must be
     #  pruned on the frontend in the first place), so disable until it is fixed.
@@ -2981,6 +2966,81 @@ def make_identifiers_lower_case(ast: Base):
     for n in names:
         n.string = n.string.lower()
     return ast
+
+
+def procedure_specs(ast: Base) -> Dict[Tuple[str, ...], Tuple[str, ...]]:
+    proc_map: Dict[Tuple[str, ...], Tuple[str, ...]] = {}
+    for pb in walk(ast, Specific_Binding):
+        # Ref: https://github.com/stfc/fparser/blob/8c870f84edbf1a24dfbc886e2f7226d1b158d50b/src/fparser/two/Fortran2003.py#L2504
+        iname, mylist, dcolon, bname, pname = pb.children
+
+        proc_spec, subp_spec = [bname.string], [pname.string if pname else bname.string]
+
+        typedef: Derived_Type_Def = pb.parent.parent
+        typedef_stmt: Derived_Type_Stmt = ast_utils.singular(ast_utils.children_of_type(typedef, Derived_Type_Stmt))
+        typedef_name: str = ast_utils.singular(ast_utils.children_of_type(typedef_stmt, Type_Name)).string
+        proc_spec.insert(0, typedef_name)
+
+        # TODO: Generalize.
+        # We assume that the type is defined inside a module (i.e., not another subprogram).
+        mod: Module = typedef.parent.parent
+        mod_stmt: Module_Stmt = ast_utils.singular(ast_utils.children_of_type(mod, Module_Stmt))
+        mod_name: str = ast_utils.singular(ast_utils.children_of_type(mod_stmt, Name)).string
+        proc_spec.insert(0, mod_name)
+        subp_spec.insert(0, mod_name)
+
+        # TODO: Is this assumption true?
+        # We assume that the type and the bound function exist in the same scope (i.e., module, subprogram etc.).
+        proc_map[tuple(proc_spec)] = tuple(subp_spec)
+    return proc_map
+
+
+def deconstruct_procedure_calls(ast: Base):
+    proc_map = procedure_specs(ast)
+    for pd in walk(ast, Procedure_Designator):
+        # TODO:
+        #  1. Find the specification part where `dref` would live and where we would insert `use`.
+        #  2. Find the type of `dref`.
+        #  3. Find the bound subprogram from the type of `dref`.
+        #  4. Insert an `use` for that bound subprogram.
+
+        # Ref: https://github.com/stfc/fparser/blob/master/src/fparser/two/Fortran2003.py#L12530
+        dref, op, bname = pd.children
+
+        callsite = pd.parent
+        assert isinstance(callsite, (Function_Reference, Call_Stmt))
+
+        # Find the nearest execution and its correpsonding specification parts.
+        execution_part = callsite.parent
+        while not isinstance(execution_part, Execution_Part):
+            execution_part = execution_part.parent
+        subprog = execution_part.parent
+        specification_part = list(ast_utils.children_of_type(subprog, Specification_Part))
+        assert len(specification_part) <= 1
+        if specification_part:
+            specification_part = specification_part[0]
+
+        # TODO: Current hack:
+        #  1) Assume that there is only one procdecure named `bname` anywhere.
+        pname = [v for k, v in proc_map.items() if k[-1] == bname.string]
+        assert len(pname) == 1
+        pname = pname[0]
+        # We are assumping that it's a subprogram defined directly inside a module.
+        assert len(pname) == 2
+        mod, pname = pname
+
+        if not specification_part:
+            subprog.children.append(Specification_Part(get_reader(f"use {mod}, only: {pname}")))
+        else:
+            specification_part.children.insert(0, Use_Stmt(f"use {mod}, only: {pname}"))
+
+        # For both function and subroutine calls, we replace `bname` with `pname`, and add `dref` as the first arg.
+        _, args = callsite.children
+        if args is None:
+            args = Actual_Arg_Spec_List(f"{dref}")
+        else:
+            args = Actual_Arg_Spec_List(f"{dref}, {args}")
+        callsite.items = (pname, args)
 
 
 def recursive_ast_improver(ast, source_list: Union[List, Dict], include_list, parser):

@@ -5,7 +5,7 @@ from fparser.common.readfortran import FortranStringReader
 from fparser.two.Fortran2003 import Program, Name, Rename
 from fparser.two.parser import ParserFactory
 
-from dace.frontend.fortran.fortran_parser import deconstruct_procedure_calls, recursive_ast_improver, prune_unused_children, simplified_dependency_graph
+from dace.frontend.fortran.fortran_parser import deconstruct_procedure_calls, recursive_ast_improver, prune_unused_children, simplified_dependency_graph, make_identifiers_lower_case
 from tests.fortran.fotran_test_helper import SourceCodeBuilder
 
 

@@ -412,7 +412,6 @@ class InternalFortranAst:
         parent = children[idx - 1]
         part_ref = children[idx]
         part_ref.isStructMember = True
-        # parent.isStructMember=True
         idx = idx - 1
         current = ast_internal_classes.Data_Ref_Node(parent_ref=parent, part_ref=part_ref, type="VOID")
 

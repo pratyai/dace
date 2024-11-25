@@ -1,6 +1,7 @@
 # Copyright 2023 ETH Zurich and the DaCe authors. All rights reserved.
 
 import copy
+from itertools import chain
 from typing import Dict, List, Optional, Tuple, Set, Union
 
 import sympy as sp
@@ -146,6 +147,7 @@ class NodeVisitor(object):
                         self.visit(item)
             elif isinstance(value, ast_internal_classes.FNode):
                 self.visit(value)
+        return node
 
 
 class NodeTransformer(NodeVisitor):
@@ -186,6 +188,122 @@ class NodeTransformer(NodeVisitor):
         return node
 
 
+class FlattenDerivedTypes(NodeTransformer):
+    def __init__(self):
+        self._mode = None  # Other options: 'SEARCH', 'DESTRUCT'
+        self._type_map: Dict[str, ast_internal_classes.Derived_Type_Def_Node] = {}
+
+    def visit(self, node: ast_internal_classes.FNode):
+        assert self._mode in {'SEARCH', 'DESTRUCT'}
+        return super().visit(node)
+
+    def search(self, program: ast_internal_classes.Program_Node):
+        self._mode = 'SEARCH'
+        ret = self.visit(program)
+        self._mode = None
+        return ret
+
+    def destruct(self, program: ast_internal_classes.Program_Node):
+        # Preliminary work
+        funcs = FindFunctionAndSubroutines.from_node(program).names
+        structs = StructLister()
+        structs.visit(program)
+        structs = structs.names
+        program = StructConstructorToFunctionCall(funcs + structs).visit(program)
+        program = CallToArray(FindFunctionAndSubroutines.from_node(program)).visit(program)
+        program = TypeInference(program).visit(program)
+        self.search(program)
+
+        # Replace the structs with (mangled) components.
+        self._mode = 'DESTRUCT'
+        program = self.visit(program)
+        self._mode = None
+        self._type_map = {}
+
+        # Redo type inference.
+        program = TypeInference(program).visit(program)
+        return program
+
+    def visit_Derived_Type_Def_Node(self, node: ast_internal_classes.Derived_Type_Def_Node):
+        if self._mode == 'SEARCH':
+            type_name = node.name.name
+            self._type_map[type_name] = node
+        return self.generic_visit(node)
+
+    def _mangle_vardecls(self, vard: ast_internal_classes.Var_Decl_Node) -> List[ast_internal_classes.Var_Decl_Node]:
+        # Cannot mangle if we don't know the type.
+        if vard.type not in self._type_map:
+            return [vard]
+        type_def: ast_internal_classes.Derived_Type_Def_Node = self._type_map[vard.type]
+        # There is nothing to mangle, so this should just go away.
+        if not type_def.component_part or not type_def.component_part.component_def_stmts:
+            return []
+
+        # Mangle one level.
+        mangled_vars = []
+        for c in type_def.component_part.component_def_stmts:
+            if not c.vars:
+                continue
+            for v in c.vars.vardecl:
+                mangled = copy.copy(v)
+                mangled.name = f"{vard.name}___{v.name}"
+                mangled_vars.append(mangled)
+        # If applicable, mangle more.
+        mangled_vars = list(chain(*(self._mangle_vardecls(mv) for mv in mangled_vars)))
+        return mangled_vars
+
+    def visit_Decl_Stmt_Node(self, node: ast_internal_classes.Decl_Stmt_Node):
+        if self._mode == 'DESTRUCT' and node.vardecl:
+            mangled_vardecls = list(chain(*(self._mangle_vardecls(v) for v in node.vardecl)))
+            node.vardecl = mangled_vardecls
+        return self.generic_visit(node)
+
+    def visit_Function_Subprogram_Node(self, node: ast_internal_classes.Function_Subprogram_Node):
+        return self._visit_args_node(node)
+
+    def visit_Subroutine_Subprogram_Node(self, node: ast_internal_classes.Subroutine_Subprogram_Node):
+        return self._visit_args_node(node)
+
+    def visit_Call_Expr_Node(self, node: ast_internal_classes.Call_Expr_Node):
+        return self._visit_args_node(node)
+
+    def _mangle_args(self, arg: ast_internal_classes.Name_Node) -> List[ast_internal_classes.Name_Node]:
+        # Cannot mangle if we don't know the type.
+        if arg.type not in self._type_map:
+            return [arg]
+        type_def: ast_internal_classes.Derived_Type_Def_Node = self._type_map[arg.type]
+        # There is nothing to mangle, so this should just go away.
+        if not type_def.component_part or not type_def.component_part.component_def_stmts:
+            return []
+
+        # Mangle one level.
+        mangled_args = []
+        for c in type_def.component_part.component_def_stmts:
+            if not c.vars:
+                continue
+            for v in c.vars.vardecl:
+                mangled = ast_internal_classes.Name_Node(name=f"{arg.name}___{v.name}", type=v.type)
+                mangled_args.append(mangled)
+        # If applicable, mangle more.
+        mangled_args = list(chain(*(self._mangle_args(ma) for ma in mangled_args)))
+        return mangled_args
+
+    def _visit_args_node(self,
+                         node: Union[
+                             ast_internal_classes.Function_Subprogram_Node,
+                             ast_internal_classes.Subroutine_Subprogram_Node,
+                             ast_internal_classes.Call_Expr_Node]):
+        if self._mode == 'DESTRUCT' and node.args:
+            mangled_args = list(chain(*(self._mangle_args(a) for a in node.args)))
+            node.args = mangled_args
+        return self.generic_visit(node)
+
+    def visit_Data_Ref_Node(self, node: ast_internal_classes.Data_Ref_Node):
+        if self._mode == 'DESTRUCT':
+            return ast_internal_classes.Name_Node(name=node.mangle_name(), type='VOID')
+        return node
+
+
 class Flatten_Classes(NodeTransformer):
 
     def __init__(self, classes: List[ast_internal_classes.Derived_Type_Def_Node]):
@@ -204,48 +322,43 @@ class Flatten_Classes(NodeTransformer):
 
     def visit_Subroutine_Subprogram_Node(self, node: ast_internal_classes.Subroutine_Subprogram_Node):
         new_node = self.generic_visit(node)
-        if self.current_class is not None:
-            for i in self.classes:
-                if i.is_class is True:
-                    if i.name.name == self.current_class.name.name:
-                        for j in i.procedure_part.procedures:
-                            if j.name.name == node.name.name:
-                                return ast_internal_classes.Subroutine_Subprogram_Node(
-                                    name=ast_internal_classes.Name_Node(name=i.name.name + "_" + node.name.name,
-                                                                        type=node.type),
-                                    args=new_node.args,
-                                    specification_part=new_node.specification_part,
-                                    execution_part=new_node.execution_part,
-                                    mandatory_args_count=new_node.mandatory_args_count,
-                                    optional_args_count=new_node.optional_args_count,
-                                    elemental=new_node.elemental,
-                                    line_number=new_node.line_number)
-                            elif hasattr(j, "args") and j.args[2] is not None:
-                                if j.args[2].name == node.name.name:
-                                    return ast_internal_classes.Subroutine_Subprogram_Node(
-                                        name=ast_internal_classes.Name_Node(name=i.name.name + "_" + j.name.name,
-                                                                            type=node.type),
-                                        args=new_node.args,
-                                        specification_part=new_node.specification_part,
-                                        execution_part=new_node.execution_part,
-                                        mandatory_args_count=new_node.mandatory_args_count,
-                                        optional_args_count=new_node.optional_args_count,
-                                        elemental=new_node.elemental,
-                                        line_number=new_node.line_number)
+        if self.current_class is None:
+            return new_node
+        for i in self.classes:
+            if not i.is_class:
+                continue
+            if i.name.name != self.current_class.name.name:
+                continue
+            for j in i.procedure_part.procedures:
+                if j.name.name == node.name.name or hasattr(j, "args") and j.args[2] is not None:
+                    return ast_internal_classes.Subroutine_Subprogram_Node(
+                        name=ast_internal_classes.Name_Node(name=i.name.name + "_" + j.name.name,
+                                                            type=node.type),
+                        args=new_node.args,
+                        specification_part=new_node.specification_part,
+                        execution_part=new_node.execution_part,
+                        mandatory_args_count=new_node.mandatory_args_count,
+                        optional_args_count=new_node.optional_args_count,
+                        elemental=new_node.elemental,
+                        line_number=new_node.line_number)
         return new_node
 
     def visit_Call_Expr_Node(self, node: ast_internal_classes.Call_Expr_Node):
         if self.current_class is not None:
-            for i in self.classes:
-                if i.is_class is True:
-                    if i.name.name == self.current_class.name.name:
-                        for j in i.procedure_part.procedures:
-                            if j.name.name == node.name.name:
-                                return ast_internal_classes.Call_Expr_Node(
-                                    name=ast_internal_classes.Name_Node(name=i.name.name + "_" + node.name.name,
-                                                                        type=node.type, args=node.args,
-                                                                        line_number=node.line_number), args=node.args,
-                                    type=node.type, line_number=node.line_number)
+            return self.generic_visit(node)
+        for i in self.classes:
+            if not i.is_class:
+                continue
+            if i.name.name != self.current_class.name.name:
+                continue
+            for j in i.procedure_part.procedures:
+                if j.name.name != node.name.name:
+                    continue
+                return ast_internal_classes.Call_Expr_Node(
+                    name=ast_internal_classes.Name_Node(name=i.name.name + "_" + node.name.name,
+                                                        type=node.type, args=node.args,
+                                                        line_number=node.line_number), args=node.args,
+                    type=node.type, line_number=node.line_number)
         return self.generic_visit(node)
 
 
@@ -2437,34 +2550,32 @@ class PointerRemoval(NodeTransformer):
         self.nodes = {}
 
     def visit_Array_Subscript_Node(self, node: ast_internal_classes.Array_Subscript_Node):
+        if node.name.name not in self.nodes:
+            return self.generic_visit(node)
 
-        if node.name.name in self.nodes:
-            original_ref_node = self.nodes[node.name.name]
+        original_ref_node = self.nodes[node.name.name]
 
-            cur_ref_node = original_ref_node
-            new_ref_node = ast_internal_classes.Data_Ref_Node(
+        cur_ref_node = original_ref_node
+        new_ref_node = ast_internal_classes.Data_Ref_Node(
+            parent_ref=cur_ref_node.parent_ref,
+            part_ref=None
+        )
+        newer_ref_node = new_ref_node
+
+        while isinstance(cur_ref_node.part_ref, ast_internal_classes.Data_Ref_Node):
+            cur_ref_node = cur_ref_node.part_ref
+            newest_ref_node = ast_internal_classes.Data_Ref_Node(
                 parent_ref=cur_ref_node.parent_ref,
                 part_ref=None
             )
-            newer_ref_node = new_ref_node
+            newer_ref_node.part_ref = newest_ref_node
+            newer_ref_node = newest_ref_node
 
-            while isinstance(cur_ref_node.part_ref, ast_internal_classes.Data_Ref_Node):
-                cur_ref_node = cur_ref_node.part_ref
-                newest_ref_node = ast_internal_classes.Data_Ref_Node(
-                    parent_ref=cur_ref_node.parent_ref,
-                    part_ref=None
-                )
-                newer_ref_node.part_ref = newest_ref_node
-                newer_ref_node = newest_ref_node
-
-            node.name = cur_ref_node.part_ref
-            newer_ref_node.part_ref = node
-            return new_ref_node
-        else:
-            return self.generic_visit(node)
+        node.name = cur_ref_node.part_ref
+        newer_ref_node.part_ref = node
+        return new_ref_node
 
     def visit_Name_Node(self, node: ast_internal_classes.Name_Node):
-
         if node.name in self.nodes:
             return self.nodes[node.name]
         return node

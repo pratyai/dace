@@ -1,5 +1,7 @@
 # Copyright 2019-2023 ETH Zurich and the DaCe authors. All rights reserved.
-from typing import List, Optional, Tuple, Union, Dict, Any
+from typing import List, Optional, Tuple, Union, Dict, Any, Self
+
+from fparser.two.pattern_tools import part_ref
 
 
 # The node class is the base class for all nodes in the AST. It provides attributes including the line number and fields.
@@ -263,6 +265,11 @@ class Prefix_Node(FNode):
 
 
 class Name_Node(FNode):
+    def __init__(self, name: str, type: str = 'VOID', **kwargs):
+        super().__init__(**kwargs)
+        self.name = name
+        self.type = type
+
     _attributes = ('name', 'type')
     _fields = ()
 
@@ -475,6 +482,12 @@ class Derived_Type_Stmt_Node(FNode):
 
 
 class Derived_Type_Def_Node(FNode):
+    def __init__(self, name, component_part: 'Component_Part_Node', procedure_part: 'Bound_Procedures_Node', **kwargs):
+        super().__init__(**kwargs)
+        self.name = name
+        self.component_part = component_part
+        self.procedure_part = procedure_part
+
     _attributes = ('name',)
     _fields = ('component_part', 'procedure_part')
 
@@ -490,10 +503,20 @@ class Data_Component_Def_Stmt_Node(FNode):
 
 
 class Data_Ref_Node(FNode):
-    def __init__(self, parent_ref: Optional[FNode], part_ref: Optional[FNode], **kwargs):
+    def __init__(self, parent_ref: Name_Node, part_ref: Union[Name_Node, Self], **kwargs):
         super().__init__(**kwargs)
         self.parent_ref = parent_ref
         self.part_ref = part_ref
+
+    def view_name(self):
+        if isinstance(self.part_ref, Name_Node):
+            return f"{self.parent_ref.name}_{self.part_ref.name}"
+        return f"{self.parent_ref.name}_{self.part_ref.view_name()}"
+
+    def mangle_name(self):
+        if isinstance(self.part_ref, Name_Node):
+            return f"{self.parent_ref.name}___{self.part_ref.name}"
+        return f"{self.parent_ref.name}___{self.part_ref.mangle_name()}"
 
     _attributes = ()
     _fields = ('parent_ref', 'part_ref')

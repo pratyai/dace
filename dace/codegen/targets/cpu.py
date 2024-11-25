@@ -1110,9 +1110,10 @@ class CPUCodeGen(TargetCodeGenerator):
                         is_global = desc.lifetime in (dtypes.AllocationLifetime.Global,
                                                       dtypes.AllocationLifetime.Persistent,
                                                       dtypes.AllocationLifetime.External)
-                        try:
+                        if self._dispatcher.declared_arrays.has(ptrname, is_global=is_global):
                             defined_type, _ = self._dispatcher.declared_arrays.get(ptrname, is_global=is_global)
-                        except KeyError:
+                        else:
+                            assert self._dispatcher.defined_vars.has(ptrname, is_global=is_global)
                             defined_type, _ = self._dispatcher.defined_vars.get(ptrname, is_global=is_global)
 
                         if defined_type == DefinedType.Scalar:

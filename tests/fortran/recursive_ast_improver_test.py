@@ -1,12 +1,17 @@
 # Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 import os
-from typing import Dict
+from typing import Dict, List, Tuple
 
 import networkx as nx
+from fparser.api import get_reader
 from fparser.common.readfortran import FortranStringReader
-from fparser.two.Fortran2003 import Program, Name
+from fparser.two.Fortran2003 import Program, Name, Specific_Binding, Derived_Type_Def, Derived_Type_Stmt, Type_Name, \
+    Procedure_Designator, Execution_Part, Function_Reference, Call_Stmt, Part_Ref, Designator, Actual_Arg_Spec, \
+    Actual_Arg_Spec_List, Specification_Part, Use_Stmt, Module_Stmt, Module
 from fparser.two.parser import ParserFactory
+from fparser.two.utils import Base, walk
 
+from dace.frontend.fortran.ast_utils import singular, children_of_type
 from dace.frontend.fortran.fortran_parser import recursive_ast_improver, simplified_dependency_graph, \
     make_identifiers_lower_case, deconstruct_procedure_calls, create_sdfg_from_fortran_file_with_options
 from tests.fortran.fotran_test_helper import SourceCodeBuilder

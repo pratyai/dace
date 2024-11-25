@@ -304,14 +304,12 @@ def emit_memlet_reference(dispatcher,
     # Get defined type (pointer, stream etc.) and change the type definition
     # accordingly.
     defined_types = None
-    try:
-        if (isinstance(desc, data.Array) and not isinstance(desc, data.View) and any(
-                str(s) not in dispatcher.frame.symbols_and_constants(sdfg)
-                for s in dispatcher.frame.free_symbols(desc))):
-            defined_types = dispatcher.declared_arrays.get(ptrname, ancestor)
-    except KeyError:
-        pass
+    if (isinstance(desc, data.Array) and not isinstance(desc, data.View) and any(
+            str(s) not in dispatcher.frame.symbols_and_constants(sdfg)
+            for s in dispatcher.frame.free_symbols(desc)) and dispatcher.declared_arrays.has(ptrname, ancestor)):
+        defined_types = dispatcher.declared_arrays.get(ptrname, ancestor)
     if not defined_types:
+        assert dispatcher.defined_vars.has(ptrname, ancestor), f"{memlet}/{ptrname} not found"
         defined_types = dispatcher.defined_vars.get(ptrname, ancestor)
     defined_type, defined_ctype = defined_types
 
@@ -1350,10 +1348,9 @@ class DaCeKeywordRemover(ExtNodeTransformer):
             ptrname = ptr(node.id, self.sdfg.arrays[node.id], self.sdfg, self.codegen._frame)
         else:
             ptrname = node.id
-        try:
+        defined_type = None
+        if self.codegen._dispatcher.defined_vars.has(ptrname):
             defined_type, _ = self.codegen._dispatcher.defined_vars.get(ptrname)
-        except KeyError:
-            defined_type = None
         if (self.allow_casts and isinstance(dtype, dtypes.pointer) and memlet.subset.num_elements() == 1):
             # Special case for pointer to pointer assignment
             if memlet.data in self.sdfg.arrays and self.sdfg.arrays[memlet.data].dtype == dtype:

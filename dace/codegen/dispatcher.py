@@ -10,7 +10,7 @@ from dace import config, data as dt, dtypes, nodes, registry
 from dace.codegen import exceptions as cgx, prettycode
 from dace.codegen.targets import target
 from dace.sdfg import utils as sdutil, SDFG, SDFGState, ScopeSubgraphView
-from typing import Dict, Set, Tuple, Union
+from typing import Dict, Set, Tuple, Union, Optional
 
 
 @registry.extensible_enum
@@ -45,18 +45,12 @@ class DefinedMemlets:
         if expected != parent:
             raise ValueError("Exited scope {} mismatched current scope {}".format(parent.name, expected.name))
 
-    def has(self, name, ancestor: int = 0):
-        try:
-            self.get(name, ancestor)
-            return True
-        except KeyError:
-            return False
+    def has(self, name, ancestor: int = 0, is_global: bool = False):
+        return self.get(name, ancestor, is_global) is not None
 
-    def get(self, name: str, ancestor: int = 0, is_global: bool = False) -> Tuple[DefinedType, str]:
-        last_visited_scope = None
+    def get(self, name: str, ancestor: int = 0, is_global: bool = False) -> Optional[Tuple[DefinedType, str]]:
         for parent, scope, can_access_parent in reversed(self._scopes):
             last_parent = parent
-            last_visited_scope = scope
             if ancestor > 0:
                 ancestor -= 1
                 continue
@@ -73,15 +67,14 @@ class DefinedMemlets:
         # Then, we expect it to be only in the very top-level scope.
         if is_global:
             last_parent = None
-        if last_parent:
-            if isinstance(last_parent, SDFGState):
-                last_parent = last_parent.parent
+        if last_parent and isinstance(last_parent, SDFGState):
+            last_parent = last_parent.parent
         for i, (parent, scope, _) in enumerate(self._scopes):
             if i == 0 or not last_parent or parent == last_parent:
                 if name in scope:
                     return scope[name]
 
-        raise KeyError("Variable {} has not been defined".format(name))
+        return None
 
     def add(self, name: str, dtype: DefinedType, ctype: str, ancestor: int = 0, allow_shadowing: bool = False):
         if not isinstance(name, str):
