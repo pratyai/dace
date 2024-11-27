@@ -3275,7 +3275,7 @@ def create_sdfg_from_fortran_file_with_options(
     source_list, include_list,
     sdfgs_dir,
     subroutine_name: Optional[str] = None,
-    normalize_offsets: bool = True, 
+    normalize_offsets: bool = True,
     propagation_info = None,
     enum_propagator_files: Optional[List[str]] = None,
     enum_propagator_ast = None,
@@ -3295,16 +3295,24 @@ def create_sdfg_from_fortran_file_with_options(
     if isinstance(source_list, list):
         source_list = {src: Path(src).read_text() for src in source_list}
     ast = recursive_ast_improver(ast, source_list, include_list, parser)
+    with open('/Users/pmz/Downloads/ecrad_ast_v0.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = deconstruct_enums(ast)
     ast = deconstruct_associations(ast)
     ast = remove_access_statements(ast)
+    with open('/Users/pmz/Downloads/ecrad_ast_v1.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = correct_for_function_calls(ast)
     ast = deconstruct_procedure_calls(ast)
+    with open('/Users/pmz/Downloads/ecrad_ast_v2.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = deconstruct_interface_calls(ast)
     ast = const_eval_nodes(ast)
     ast = prune_branches(ast)
     ast = prune_unused_objects(ast,
                                [m for m in walk(ast, Subroutine_Subprogram) if find_name_of_node(m) == 'radiation'])
+    with open('/Users/pmz/Downloads/ecrad_ast_v3.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = assign_globally_unique_subprogram_names(ast, {('radiation_interface', 'radiation')})
     ast = assign_globally_unique_variable_names(ast, {'config'})
     ast = consolidate_uses(ast)

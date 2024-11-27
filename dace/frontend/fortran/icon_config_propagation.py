@@ -58,9 +58,9 @@ def parse_assignments(assignments: list[str]) -> list[tuple[str, str]]:
 
 if __name__ == "__main__":
 
-    base_icon_path = sys.argv[1]
-    icon_file = sys.argv[2]
-    sdfgs_dir = sys.argv[3]
+    base_icon_path = '/Users/pmz/gitspace/icon-dace'
+    icon_file = 'externals/ecrad/radiation/radiation_interface.F90'
+    sdfgs_dir = '/Users/pmz/gitspace/icon-dace/fcdc/ecrad_f2dace/sdfgs'
 
     base_dir_ecrad = f"{base_icon_path}/externals/ecrad"
     base_dir_icon = f"{base_icon_path}/src"
@@ -203,3 +203,5 @@ if __name__ == "__main__":
         enum_propagator_files=enum_propagator_files,
         used_functions_config=cfg
     )
+
+  
