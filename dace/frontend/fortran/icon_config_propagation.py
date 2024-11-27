@@ -76,9 +76,9 @@ def config_injection_list(root: str = 'dace/frontend/fortran/conf_files') -> Lis
 
 if __name__ == "__main__":
 
-    base_icon_path = sys.argv[1]
-    icon_file = sys.argv[2]
-    sdfgs_dir = sys.argv[3]
+    base_icon_path = '/Users/pmz/gitspace/icon-dace'
+    icon_file = 'externals/ecrad/radiation/radiation_interface.F90'
+    sdfgs_dir = '/Users/pmz/gitspace/icon-dace/fcdc/ecrad_f2dace/sdfgs'
     if len(sys.argv) > 4:
         already_parsed_ast = sys.argv[4]
     else:

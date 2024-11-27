@@ -2163,11 +2163,9 @@ def par_Decl_Range_Finder(node: ast_internal_classes.Array_Subscript_Node,
     indices = []
     name_chain = []
     if isinstance(node, ast_internal_classes.Data_Ref_Node):
-
         # we assume starting from the top (left-most) data_ref_node
         # for struct1 % struct2 % struct3 % var
         # we find definition of struct1, then we iterate until we find the var
-
         struct_type = scope_vars.get_var(node.parent, node.parent_ref.name).type
         struct_def = structures.structures[struct_type]
         cur_node = node
@@ -2206,10 +2204,12 @@ def par_Decl_Range_Finder(node: ast_internal_classes.Array_Subscript_Node,
 
             struct_type = struct_def.vars[cur_node.parent_ref.name].type
             struct_def = structures.structures[struct_type]
-
     else:
         offsets = scope_vars.get_var(node.parent, node.name.name).offsets
 
+    currentindex = 0
+    indices = []
+    name_chain = []
     for idx, i in enumerate(node.indices):
 
         if isinstance(i, ast_internal_classes.ParDecl_Node):
@@ -2342,6 +2342,8 @@ def par_Decl_Range_Finder(node: ast_internal_classes.Array_Subscript_Node,
 
                     Offset is handled by always subtracting the lower boundary.
                 """
+                assert len(main_iterator_ranges) > currentindex, f"{main_iterator_ranges}/{currentindex}"
+                assert main_iterator_ranges[currentindex]
                 current_lower_boundary = main_iterator_ranges[currentindex][0]
 
                 indices.append(
