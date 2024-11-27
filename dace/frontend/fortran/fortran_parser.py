@@ -3278,14 +3278,22 @@ def create_sdfg_from_fortran_file_with_options(source_string: str, source_list, 
     if isinstance(source_list, list):
         source_list = {src: Path(src).read_text() for src in source_list}
     ast = recursive_ast_improver(ast, source_list, include_list, parser)
+    with open('/Users/pmz/Downloads/ecrad_ast_v0.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = deconstruct_enums(ast)
     ast = deconstruct_associations(ast)
     ast = remove_access_statements(ast)
+    with open('/Users/pmz/Downloads/ecrad_ast_v1.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = correct_for_function_calls(ast)
     ast = deconstruct_procedure_calls(ast)
+    with open('/Users/pmz/Downloads/ecrad_ast_v2.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = deconstruct_interface_calls(ast)
     ast = prune_unused_objects(ast,
                                [m for m in walk(ast, Subroutine_Subprogram) if find_name_of_node(m) == 'radiation'])
+    with open('/Users/pmz/Downloads/ecrad_ast_v3.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = assign_globally_unique_subprogram_names(ast, {('radiation_interface', 'radiation')})
     ast = assign_globally_unique_variable_names(ast)
     ast = consolidate_uses(ast)
@@ -3423,18 +3431,18 @@ def create_sdfg_from_fortran_file_with_options(source_string: str, source_list, 
 
     # time to trim the ast using the propagation info
     # adding enums from radiotion config
-    parkind_ast = parser(ffr(file_candidate="/home/alex/icon-model/src/shared/mo_kind.f90"))
+    parkind_ast = parser(ffr(file_candidate="/Users/pmz/gitspace/icon-dace/src/shared/mo_kind.f90"))
     parkinds = partial_ast.create_ast(parkind_ast)
 
     parkind2 = parser(
-        ffr(file_candidate="/home/alex/icon-model/externals/ecrad/ifsaux/parkind1.F90"))
+        ffr(file_candidate="/Users/pmz/gitspace/icon-dace/externals/ecrad/ifsaux/parkind1.F90"))
     parkinds2 = partial_ast.create_ast(parkind2)
     ecradhook = parser(
-        ffr(file_candidate="/home/alex/icon-model/externals/ecrad/ifsaux/ecradhook.F90"))
+        ffr(file_candidate="/Users/pmz/gitspace/icon-dace/externals/ecrad/ifsaux/ecradhook.F90"))
     ecradhook = partial_ast.create_ast(ecradhook)
 
     radiation_config_ast = parser(
-        ffr(file_candidate="/home/alex/icon-model/externals/ecrad/radiation/radiation_config.F90"))
+        ffr(file_candidate="/Users/pmz/gitspace/icon-dace/externals/ecrad/radiation/radiation_config.F90"))
     radiation_config_internal_ast = partial_ast.create_ast(radiation_config_ast)
     enum_propagator = ast_transforms.PropagateEnums()
     enum_propagator.visit(radiation_config_internal_ast)

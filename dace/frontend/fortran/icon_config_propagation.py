@@ -57,21 +57,21 @@ def parse_assignments(assignments: list[str]) -> list[tuple[str, str]]:
 
 
 if __name__ == "__main__":
-    base_dir_ecrad = "/home/alex/icon-model/externals/ecrad"
-    base_dir_icon = "/home/alex/icon-model/src"
+    base_dir_ecrad = "/Users/pmz/gitspace/icon-dace/externals/ecrad"
+    base_dir_icon = "/Users/pmz/gitspace/icon-dace/src"
     fortran_files = find_path_recursive(base_dir_ecrad)
     ast_builder = ast_components.InternalFortranAst()
     parser = pf().create(std="f2008")
 
-    strings = read_lines_between("/home/alex/icon-model/run/exp.exclaim_ape_R2B09", "! radiation_nml: radiation scheme",
+    strings = read_lines_between("/Users/pmz/gitspace/icon-dace/run/exp.exclaim_ape_R02B04",
+                                 "! radiation_nml: radiation scheme",
                                  "/")
     parsed_strings = parse_assignments(strings)
 
-    parkind_ast = parser(ffr(file_candidate="/home/alex/icon-model/src/shared/mo_kind.f90"))
+    parkind_ast = parser(ffr(file_candidate="/Users/pmz/gitspace/icon-dace/src/shared/mo_kind.f90"))
     parkinds = ast_builder.create_ast(parkind_ast)
-   
 
-    reader = ffr(file_candidate="/home/alex/icon-model/src/namelists/mo_radiation_nml.f90")
+    reader = ffr(file_candidate="/Users/pmz/gitspace/icon-dace/src/namelists/mo_radiation_nml.f90")
     namelist_ast = parser(reader)
     namelist_internal_ast = ast_builder.create_ast(namelist_ast)
     lister = ast_transforms.AssignmentLister(parsed_strings)
@@ -93,14 +93,14 @@ if __name__ == "__main__":
 
     # adding enums from radiotion config
     adiation_config_ast = parser(
-        ffr(file_candidate="/home/alex/icon-model/src/configure_model/mo_radiation_config.f90"))
+        ffr(file_candidate="/Users/pmz/gitspace/icon-dace/src/configure_model/mo_radiation_config.f90"))
     radiation_config_internal_ast = ast_builder.create_ast(adiation_config_ast)
     enum_propagator = ast_transforms.PropagateEnums()
     enum_propagator.visit(radiation_config_internal_ast)
 
     # namelist_assignments.insert(0,("amd", "28.970"))
 
-    ecrad_init_ast = parser(ffr(file_candidate="/home/alex/icon-model/src/atm_phy_nwp/mo_nwp_ecrad_init.f90"))
+    ecrad_init_ast = parser(ffr(file_candidate="/Users/pmz/gitspace/icon-dace/src/atm_phy_nwp/mo_nwp_ecrad_init.f90"))
     ecrad_internal_ast = ast_builder.create_ast(ecrad_init_ast)
     # clearing acc check
     ecrad_internal_ast.modules[0].subroutine_definitions.pop(1)
@@ -131,36 +131,35 @@ if __name__ == "__main__":
          ast_internal.Bool_Literal_Node(value='False')))
 
 
-    #namelist_internal_ast=IfEvaluator().visit(namelist_internal_ast)
-    base_dir = "/home/alex/icon-model/externals/ecrad/"
-    #base_dir = "/mnt/c/Users/AlexWork/icon_f2dace/src"
+    # namelist_internal_ast=IfEvaluator().visit(namelist_internal_ast)
+    base_dir = "/Users/pmz/gitspace/icon-dace/externals/ecrad/"
+    # base_dir = "/mnt/c/Users/AlexWork/icon_f2dace/src"
     fortran_files = find_path_recursive(base_dir)
-  
-    #print(fortran_files)
-    inc_list = ["/home/alex/icon-model/externals/ecrad/include"]
-    #inc_list = ["/mnt/c/Users/AlexWork/icon_f2dace/src/include"]
-    
-    #sdfg = fortran_parser.create_sdfg_from_fortran_file_with_options(
+
+    # print(fortran_files)
+    inc_list = ["/Users/pmz/gitspace/icon-dace/externals/ecrad/include"]
+    # inc_list = ["/mnt/c/Users/AlexWork/icon_f2dace/src/include"]
+
+    # sdfg = fortran_parser.create_sdfg_from_fortran_file_with_options(
     #    "/mnt/c/Users/AlexWork/icon_f2dace/src/shared/mo_util_texthash.f90",
     #     include_list=inc_list,
     #    source_list=fortran_files)
     fortran_parser.create_sdfg_from_fortran_file_with_options(
-        #"/mnt/c/Users/AlexWork/icon_f2dace/src/atm_dyn_iconam/mo_solve_nonhydro.f90",
-        #"/home/alex/ecrad/driver/ecrad_driver.F90",
-        #"/home/alex/ecrad/radiation/radiation_homogeneous_lw.F90",
-        #"/home/alex/ecrad/ifs/yoe_spectral_planck.F90",
-        #"/home/alex/ecrad/ifs/radiation_scheme.F90",
-        "/home/alex/icon-model/externals/ecrad/radiation/radiation_interface.F90",
-        #"/mnt/c/Users/AlexWork/icon_f2dace/src/shared/mo_loopindices.f90",
-        #"/mnt/c/Users/AlexWork/icon_f2dace/src/parallel_infrastructure/mo_mpi.f90",
-        #"/mnt/c/Users/AlexWork/icon_f2dace/src/shared/mo_fortran_tools.f90",
-        #"/mnt/c/Users/AlexWork/icon_f2dace/src/shared/mo_math_utility_solvers2.f90",
-        #"/mnt/c/Users/AlexWork/icon_f2dace/src/shared/mo_math_utilities.f90",
-        #"/mnt/c/Users/AlexWork/icon_f2dace/src/configure_model/mo_parallel_config.f90",
-        #"/mnt/c/Users/AlexWork/icon_f2dace/src/shared/mo_exception.f90",
+        # "/mnt/c/Users/AlexWork/icon_f2dace/src/atm_dyn_iconam/mo_solve_nonhydro.f90",
+        # "/Users/pmz/gitspace/icon-dace/externals/ecrad/driver/ecrad_driver.F90",
+        # "/Users/pmz/gitspace/icon-dace/externals/ecrad/radiation/radiation_homogeneous_lw.F90",
+        # "/Users/pmz/gitspace/icon-dace/externals/ecrad/ifs/yoe_spectral_planck.F90",
+        # "/Users/pmz/gitspace/icon-dace/externals/ecrad/ifs/radiation_scheme.F90",
+        "/Users/pmz/gitspace/icon-dace/externals/ecrad/radiation/radiation_interface.F90",
+        # "/mnt/c/Users/AlexWork/icon_f2dace/src/shared/mo_loopindices.f90",
+        # "/mnt/c/Users/AlexWork/icon_f2dace/src/parallel_infrastructure/mo_mpi.f90",
+        # "/mnt/c/Users/AlexWork/icon_f2dace/src/shared/mo_fortran_tools.f90",
+        # "/mnt/c/Users/AlexWork/icon_f2dace/src/shared/mo_math_utility_solvers2.f90",
+        # "/mnt/c/Users/AlexWork/icon_f2dace/src/shared/mo_math_utilities.f90",
+        # "/mnt/c/Users/AlexWork/icon_f2dace/src/configure_model/mo_parallel_config.f90",
+        # "/mnt/c/Users/AlexWork/icon_f2dace/src/shared/mo_exception.f90",
         include_list=inc_list,
-        source_list=fortran_files,icon_sources_dir="/home/alex/icon-model/externals/ecradicon-model/external/ecrad/",
-        icon_sdfgs_dir="/home/alex/fcdc/ecrad_f2dace/sdfgs",normalize_offsets=True, propagation_info=lister.simple_assignments+lister2.simple_assignments)
-    
-
-  
+        source_list=fortran_files,
+        icon_sources_dir="/Users/pmz/gitspace/icon-dace/externals/ecradicon-model/external/ecrad/",
+        icon_sdfgs_dir="/Users/pmz/gitspace/icon-dace/fcdc/ecrad_f2dace/sdfgs", normalize_offsets=True,
+        propagation_info=lister.simple_assignments + lister2.simple_assignments)
