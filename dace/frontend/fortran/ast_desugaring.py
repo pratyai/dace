@@ -245,6 +245,9 @@ def identifier_specs(ast: Program) -> SPEC_TABLE:
     return ident_map
 
 
+ISO_MODULES: Set[str] = {'iso_fortran_env'}
+
+
 def alias_specs(ast: Program):
     """
     Maps each "alias-type" identifier of interest in `ast` to its associated node that defines it.
@@ -254,6 +257,9 @@ def alias_specs(ast: Program):
 
     for stmt in walk(ast, Use_Stmt):
         mod_name = singular(children_of_type(stmt, Name)).string
+        if mod_name in ISO_MODULES:
+            # TODO: Create working aliases for ISO Modules and its objects
+            continue
         mod_spec = (mod_name,)
 
         scope_spec = find_scope_spec(stmt)

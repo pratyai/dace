@@ -3148,15 +3148,23 @@ def create_sdfg_from_fortran_file_with_options(
     :return: The resulting SDFG
 
     """
+    with open('/Users/pmz/Downloads/ecrad_ast_v0.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = deconstruct_enums(ast)
     ast = deconstruct_associations(ast)
     ast = remove_access_statements(ast)
+    with open('/Users/pmz/Downloads/ecrad_ast_v1.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = correct_for_function_calls(ast)
     ast = deconstruct_procedure_calls(ast)
+    with open('/Users/pmz/Downloads/ecrad_ast_v2.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = deconstruct_interface_calls(ast)
     ast = const_eval_nodes(ast)
     ast = prune_branches(ast)
     ast = prune_unused_objects(ast, cfg.entry_points)
+    with open('/Users/pmz/Downloads/ecrad_ast_v3.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = assign_globally_unique_subprogram_names(ast, {('radiation_interface', 'radiation')})
     ast = assign_globally_unique_variable_names(ast, {'config'})
     ast = consolidate_uses(ast)
