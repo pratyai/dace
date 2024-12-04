@@ -37,10 +37,10 @@ fortrantypes2dacetypes = {
 def eliminate_dependencies(dep_graph: nx.DiGraph) -> Tuple[nx.DiGraph, Dict[str, List]]:
     simple_graph = nx.DiGraph()
     simplify_order = list(nx.topological_sort(dep_graph))
-    actually_used_in_module = {}
+    actually_used_in_module: Dict[str, Set[str]] = {}
     for i in simplify_order:
         res = dep_graph.nodes.get(i).get("info_list")
-        if simple_graph.has_node(i):
+        if not simple_graph.has_node(i):
             simple_graph.add_node(i, info_list=res)
         in_names = []
         out_names = []
@@ -291,7 +291,7 @@ def eliminate_dependencies(dep_graph: nx.DiGraph) -> Tuple[nx.DiGraph, Dict[str,
                 if not simple_graph.has_node(dep):
                     simple_graph.add_node(dep)
                 simple_graph.add_edge(i, dep, obj_list=new_out_names_local)
-        actually_used_in_module[i] = actually_used
+        actually_used_in_module[i] = set(actually_used)
         # print(simple_graph)
 
     # Verify that all `UseAllPruneList` items are accounted for in the simplified graph.
