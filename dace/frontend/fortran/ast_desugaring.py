@@ -1,5 +1,7 @@
 import math
+import operator
 import re
+import sys
 from typing import Union, Tuple, Dict, Optional, List, Iterable, Set
 
 import networkx as nx
@@ -15,9 +17,10 @@ from fparser.two.Fortran2003 import Program_Stmt, Module_Stmt, Function_Stmt, Su
     Specification_Part, Interface_Block, Association, Procedure_Designator, Type_Bound_Procedure_Part, \
     Associate_Construct, Subscript_Triplet, End_Function_Stmt, End_Subroutine_Stmt, Module_Subprogram_Part, \
     Enumerator_List, Actual_Arg_Spec_List, Only_List, Section_Subscript_List, Char_Selector, Data_Pointer_Object, \
-    Explicit_Shape_Spec, Component_Initialization, Subroutine_Body, Function_Body
+    Explicit_Shape_Spec, Component_Initialization, Subroutine_Body, Function_Body, If_Then_Stmt, Else_If_Stmt, \
+    Else_Stmt, If_Construct
 from fparser.two.Fortran2008 import Procedure_Stmt, Type_Declaration_Stmt
-from fparser.two.utils import Base, walk
+from fparser.two.utils import Base, walk, BinaryOpBase, UnaryOpBase
 
 from dace.frontend.fortran.ast_utils import singular, children_of_type, atmost_one
 
@@ -45,6 +48,7 @@ class TYPE_SPEC:
         self.optional: bool = 'OPTIONAL' in attrs
         self.inp: bool = 'INTENT(IN)' in attrs or 'INTENT(INOUT)' in attrs
         self.out: bool = 'INTENT(OUT)' in attrs or 'INTENT(INOUT)' in attrs
+        self.const: bool = 'PARAMETER' in attrs
         self.keyword: Optional[str] = None
 
     @staticmethod
@@ -323,6 +327,7 @@ def _const_eval_int(expr: Base, alias_map: SPEC_TABLE) -> Optional[int]:
         spec = find_real_ident_spec(expr.string, scope_spec, alias_map)
         decl = alias_map[spec]
         assert isinstance(decl, Entity_Decl)
+        # TODO: Verify that it is a constant expression.
         init = atmost_one(children_of_type(decl, Initialization))
         # TODO: Add ref.
         _, iexpr = init.children
@@ -345,6 +350,90 @@ def _const_eval_int(expr: Base, alias_map: SPEC_TABLE) -> Optional[int]:
             return _eval_selected_int_kind(p)
     elif isinstance(expr, Int_Literal_Constant):
         return int(expr.tofortran())
+
+    # TODO: Add other evaluations.
+    return None
+
+
+UNARY_OPS = {
+    '.NOT.': operator.not_,
+}
+
+BINARY_OPS = {
+    '<': operator.le,
+    '>': operator.ge,
+    '==': operator.eq,
+    '/=': operator.ne,
+    '<=': operator.lt,
+    '>=': operator.gt,
+    '+': operator.add,
+    '-': operator.sub,
+    '*': operator.mul,
+    '.OR.': operator.or_,
+    '.AND.': operator.and_,
+}
+
+
+def _const_eval_basic_type(expr: Base, alias_map: SPEC_TABLE) -> Union[None, bool, int, float]:
+    if isinstance(expr, (Part_Ref, Data_Ref)):
+        scope_spec = find_scope_spec(expr)
+        # root_type, rest = _dataref_root(expr, scope_spec, alias_map)
+        # if len(root_type.spec) == 1:
+        #     return None
+        # breakpoint()
+        return None
+    elif isinstance(expr, Name):
+        scope_spec = find_scope_spec(expr)
+        spec = find_real_ident_spec(expr.string, scope_spec, alias_map)
+        decl = alias_map[spec]
+        assert isinstance(decl, Entity_Decl)
+        typ = find_type_of_entity(decl, alias_map)
+        if not typ or not typ.const:
+            return None
+        init = atmost_one(children_of_type(decl, Initialization))
+        # TODO: Add ref.
+        _, iexpr = init.children
+        return _const_eval_basic_type(iexpr, alias_map)
+    elif isinstance(expr, Intrinsic_Function_Reference):
+        intr, args = expr.children
+        if args:
+            args = args.children
+        if intr.string == 'EPSILON':
+            return sys.float_info.epsilon
+        elif intr.string == 'SELECTED_REAL_KIND':
+            assert len(args) == 2
+            p, r = args
+            p, r = _const_eval_basic_type(p, alias_map), _const_eval_basic_type(r, alias_map)
+            assert isinstance(p, int) and isinstance(r, int)
+            return _eval_selected_real_kind(p, r)
+        elif intr.string == 'SELECTED_INT_KIND':
+            assert len(args) == 1
+            p, = args
+            p = _const_eval_basic_type(p, alias_map)
+            assert isinstance(p, int)
+            return _eval_selected_int_kind(p)
+    elif isinstance(expr, (Int_Literal_Constant, Signed_Int_Literal_Constant)):
+        return int(expr.tofortran())
+    elif isinstance(expr, (Real_Literal_Constant, Signed_Real_Literal_Constant)):
+        num = expr.tofortran()
+        num = num[:num.find('_')]
+        return float(num)
+    elif isinstance(expr, BinaryOpBase):
+        lv, op, rv = expr.children
+        if op in BINARY_OPS:
+            lv = _const_eval_basic_type(lv, alias_map)
+            rv = _const_eval_basic_type(rv, alias_map)
+            if lv is None or rv is None:
+                return None
+            assert type(lv) is type(rv)
+            return BINARY_OPS[op](lv, rv)
+    elif isinstance(expr, UnaryOpBase):
+        op, val = expr.children
+        if op in UNARY_OPS:
+            val = _const_eval_basic_type(val, alias_map)
+            if val is None:
+                return None
+            return UNARY_OPS[op](val)
 
     # TODO: Add other evaluations.
     return None
@@ -1719,4 +1808,62 @@ def consolidate_uses(ast: Program) -> Program:
         # Remove the old ones, and prepend the new ones.
         sp.content = nuses + [c for c in sp.children if not isinstance(c, Use_Stmt)]
         _reparent_children(sp)
+    return ast
+
+
+def _prune_branches_in_ifblock(ib: If_Construct, alias_map: SPEC_TABLE):
+    ifthen = ib.children[0]
+    assert isinstance(ifthen, If_Then_Stmt)
+    cond, = ifthen.children
+    cval = _const_eval_basic_type(cond, alias_map)
+    if cval is None:
+        return
+    print(f"PRUNING: {cond}")
+    assert isinstance(cval, bool)
+
+    elifat = [idx for idx, c in enumerate(ib.children) if isinstance(c, (Else_If_Stmt, Else_Stmt))]
+    if cval:
+        cut = elifat[0] if elifat else -1
+        actions = ib.children[1:cut]
+        replace_node(ib, actions)
+        return
+    elif not elifat:
+        remove_self(ib)
+        return
+
+    cut = elifat[0]
+    cut_cond = ib.children[cut]
+    if isinstance(cut_cond, Else_Stmt):
+        actions = ib.children[cut + 1:-1]
+        replace_node(ib, actions)
+        return
+
+    isinstance(cut_cond, Else_If_Stmt)
+    cut_cond, _ = cut_cond.children
+    remove_children(ib, ib.children[1:(cut + 1)])
+    set_children(ifthen, (cut_cond,))
+    return _prune_branches_in_ifblock(ib, alias_map)
+
+
+def prune_branches(ast: Program) -> Program:
+    ast = const_eval_nodes(ast)
+    alias_map = alias_specs(ast)
+    for ib in walk(ast, If_Construct):
+        _prune_branches_in_ifblock(ib, alias_map)
+    return ast
+
+
+def const_eval_nodes(ast: Program) -> Program:
+    alias_map = alias_specs(ast)
+    for n in reversed(walk(ast)):
+        val = _const_eval_basic_type(n, alias_map)
+        if not val:
+            continue
+        if isinstance(val, int):
+            val = Int_Literal_Constant(str(val))
+        elif isinstance(val, bool):
+            val = Logical_Literal_Constant(str(val))
+        elif isinstance(val, float):
+            val = Real_Literal_Constant(str(val))
+        replace_node(n, val)
     return ast

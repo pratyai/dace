@@ -31,7 +31,7 @@ from dace.frontend.fortran.ast_desugaring import SPEC, ENTRY_POINT_OBJECT_TYPES,
     identifier_specs, append_children, correct_for_function_calls, remove_access_statements, sort_modules, \
     deconstruct_enums, deconstruct_interface_calls, deconstruct_procedure_calls, prune_unused_objects, \
     deconstruct_associations, assign_globally_unique_subprogram_names, assign_globally_unique_variable_names, \
-    consolidate_uses
+    consolidate_uses, prune_branches
 from dace.frontend.fortran.ast_internal_classes import FNode, Main_Program_Node
 from dace.frontend.fortran.intrinsics import IntrinsicSDFGTransformation
 from dace.properties import CodeBlock
@@ -3095,6 +3095,16 @@ def create_sdfg_from_fortran_file_with_options(source_string: str, source_list, 
 
     """
     parser = pf().create(std="f2008")
+
+    reader = fsr(Path('/Users/pmz/Downloads/ecrad_ast_v3.f90').read_text())
+    ast = parser(reader)
+    ast = prune_branches(ast)
+    ast = prune_unused_objects(ast,
+                               [m for m in walk(ast, Subroutine_Subprogram) if find_name_of_node(m) == 'radiation'])
+    with open('/Users/pmz/Downloads/ecrad_ast_v4.f90', 'w') as f:
+        f.write(ast.tofortran())
+    exit()
+
     reader = ffr(file_candidate=source_string, include_dirs=include_list, source_only=source_list)
 
     ast = parser(reader)
@@ -3116,6 +3126,7 @@ def create_sdfg_from_fortran_file_with_options(source_string: str, source_list, 
     with open('/Users/pmz/Downloads/ecrad_ast_v3.f90', 'w') as f:
         f.write(ast.tofortran())
     assert 'nf90_get_var' not in ast.tofortran()
+    ast = prune_branches(ast)
     ast = prune_unused_objects(ast,
                                [m for m in walk(ast, Subroutine_Subprogram) if find_name_of_node(m) == 'radiation'])
     with open('/Users/pmz/Downloads/ecrad_ast_v4.f90', 'w') as f:
@@ -3126,8 +3137,10 @@ def create_sdfg_from_fortran_file_with_options(source_string: str, source_list, 
     with open('/Users/pmz/Downloads/ecrad_ast_v5.f90', 'w') as f:
         f.write(ast.tofortran())
     ast = assign_globally_unique_variable_names(ast)
-    ast = consolidate_uses(ast)
     with open('/Users/pmz/Downloads/ecrad_ast_v6.f90', 'w') as f:
+        f.write(ast.tofortran())
+    ast = consolidate_uses(ast)
+    with open('/Users/pmz/Downloads/ecrad_ast_v7.f90', 'w') as f:
         f.write(ast.tofortran())
     dep_graph = compute_dep_graph(ast, 'radiation_interface')
     parse_order = list(reversed(list(nx.topological_sort(dep_graph))))
@@ -3293,45 +3306,44 @@ def create_sdfg_from_fortran_file_with_options(source_string: str, source_list, 
             prop.replacements) + " If: " + str(if_eval.replacements))
         step += 1
 
-    unusedFunctionFinder = ast_transforms.FindUnusedFunctions("radiation", parse_order)
-    unusedFunctionFinder.visit(program)
-    used_funcs = unusedFunctionFinder.used_names
-    needed = []
-    current_list = used_funcs['radiation']
-    current_list += 'radiation'
-    # current_list+='calc_no_scattering_transmittance_lw'
-    # needed.append(['radiation_twostreams','calc_no_scattering_transmittance_lw'])
-    needed.append(['radiation_interface', 'radiation'])
-    skip_list = []
-    skip_list = ['radiation_monochromatic', 'radiation_cloudless_sw',
-                 'radiation_tripleclouds_sw', 'radiation_homogeneous_sw']
-    for i in reversed(parse_order):
-        for j in program.modules:
-            if j.name.name in skip_list:
-                continue
-            if j.name.name == i:
-
-                for k in j.subroutine_definitions:
-                    if k.name.name in current_list:
-                        current_list += used_funcs[k.name.name]
-                        needed.append([j.name.name, k.name.name])
-
-    for i in program.modules:
-        subroutines = []
-        for j in needed:
-            if i.name.name == j[0]:
-
-                for k in i.subroutine_definitions:
-                    if k.name.name == j[1]:
-                        subroutines.append(k)
-        i.subroutine_definitions = subroutines
+    # unusedFunctionFinder = ast_transforms.FindUnusedFunctions("radiation", parse_order)
+    # unusedFunctionFinder.visit(program)
+    # used_funcs = unusedFunctionFinder.used_names
+    # needed = []
+    # current_list = used_funcs['radiation']
+    # current_list += 'radiation'
+    # # current_list+='calc_no_scattering_transmittance_lw'
+    # # needed.append(['radiation_twostreams','calc_no_scattering_transmittance_lw'])
+    # needed.append(['radiation_interface', 'radiation'])
+    # skip_list = []
+    # skip_list = ['radiation_monochromatic', 'radiation_cloudless_sw',
+    #              'radiation_tripleclouds_sw', 'radiation_homogeneous_sw']
+    # for i in reversed(parse_order):
+    #     for j in program.modules:
+    #         if j.name.name in skip_list:
+    #             continue
+    #         if j.name.name == i:
+    #
+    #             for k in j.subroutine_definitions:
+    #                 if k.name.name in current_list:
+    #                     current_list += used_funcs[k.name.name]
+    #                     needed.append([j.name.name, k.name.name])
+    #
+    # for i in program.modules:
+    #     subroutines = []
+    #     for j in needed:
+    #         if i.name.name == j[0]:
+    #
+    #             for k in i.subroutine_definitions:
+    #                 if k.name.name == j[1]:
+    #                     subroutines.append(k)
+    #     i.subroutine_definitions = subroutines
 
     program = ast_transforms.SignToIf().visit(program)
     program = ast_transforms.ArrayToLoop(program).visit(program)
     program = ast_transforms.optionalArgsExpander(program)
     program = ast_transforms.TypeInference(program, assert_voids=False).visit(program)
     program = ast_transforms.ArgumentExtractor(program).visit(program)
-
 
     print("Before intrinsics")
     for transformation in partial_ast.fortran_intrinsics().transformations():
