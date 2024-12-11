@@ -1,5 +1,6 @@
 from typing import Dict
 
+import numpy as np
 from fparser.common.readfortran import FortranStringReader
 from fparser.two.Fortran2003 import Program
 from fparser.two.parser import ParserFactory
@@ -7,7 +8,7 @@ from fparser.two.parser import ParserFactory
 from dace.frontend.fortran.ast_desugaring import correct_for_function_calls, deconstruct_enums, \
     deconstruct_interface_calls, deconstruct_procedure_calls, deconstruct_associations, \
     assign_globally_unique_subprogram_names, assign_globally_unique_variable_names, prune_branches, \
-    const_eval_nodes
+    const_eval_nodes, inject_const_evals
 from dace.frontend.fortran.fortran_parser import recursive_ast_improver
 from tests.fortran.fortran_test_helper import SourceCodeBuilder
 
@@ -1385,6 +1386,63 @@ SUBROUTINE main
     REAL, INTENT(OUT) :: y
     y = x * 8
   END SUBROUTINE not_fun
+END SUBROUTINE main
+""".strip()
+    assert got == want
+    SourceCodeBuilder().add_file(got).check_with_gfortran()
+
+
+def test_constant_resolving_injected():
+    sources, main = SourceCodeBuilder().add_file("""
+subroutine main
+  implicit none
+  type config
+    integer :: a = 8
+    real :: b = 2.0
+    logical :: c = .false.
+  end type config
+  type big_config
+    type(config) :: big
+  end type big_config
+  type(big_config) :: bcfg
+  integer :: i
+  real :: a = 1
+  do i = 2, bcfg%big%a
+    if (bcfg%big%c) then
+      a = a + i*bcfg%big%b
+    end if
+  end do
+end subroutine main
+""").check_with_gfortran().get()
+    ast = parse_and_improve(sources)
+    ast = correct_for_function_calls(ast)
+    ast = inject_const_evals(ast, {
+        (('main', 'big_config'), ('big', 'a',)) : np.int32(9),
+        (('main', 'big_config'), ('big', 'b',)): np.float32(4.2),
+        (('main', 'big_config'), ('big', 'c',)): np.bool_(True),
+    })
+
+    got = ast.tofortran()
+    print(got)
+    want = """
+SUBROUTINE main
+  IMPLICIT NONE
+  TYPE :: config
+    INTEGER :: a = 8
+    REAL :: b = 2.0
+    LOGICAL :: c = .FALSE.
+  END TYPE config
+  TYPE :: big_config
+    TYPE(config) :: big
+  END TYPE big_config
+  TYPE(big_config) :: bcfg
+  INTEGER :: i
+  REAL :: a = 1
+  DO i = 2, 9
+    IF (.TRUE.) THEN
+      a = a + i * 4.2
+    END IF
+  END DO
 END SUBROUTINE main
 """.strip()
     assert got == want

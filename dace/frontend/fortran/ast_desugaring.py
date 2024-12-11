@@ -2019,10 +2019,36 @@ def prune_branches(ast: Program) -> Program:
     return ast
 
 
+LITERAL_TYPES = Union[
+    Real_Literal_Constant, Signed_Real_Literal_Constant, Int_Literal_Constant, Signed_Int_Literal_Constant,
+    Logical_Literal_Constant]
+
+
+def numpy_type_to_literal(val: NUMPY_TYPES) -> Union[LITERAL_TYPES]:
+    if isinstance(val, np.bool_):
+        val = Logical_Literal_Constant('.true.' if val else '.false.')
+    elif isinstance(val, NUMPY_INTS):
+        bytez = _count_bytes(type(val))
+        if val < 0:
+            val = Signed_Int_Literal_Constant(f"{val}" if bytez == 4 else f"{val}_{bytez}")
+        else:
+            val = Int_Literal_Constant(f"{val}" if bytez == 4 else f"{val}_{bytez}")
+    elif isinstance(val, NUMPY_REALS):
+        bytez = _count_bytes(type(val))
+        valstr = str(val)
+        if bytez == 8:
+            if 'e' in valstr:
+                valstr = valstr.replace('e', 'D')
+            else:
+                valstr = f"{valstr}D0"
+        if val < 0:
+            val = Signed_Real_Literal_Constant(valstr)
+        else:
+            val = Real_Literal_Constant(valstr)
+    return val
+
+
 def const_eval_nodes(ast: Program) -> Program:
-    LITERAL_TYPES = Union[
-        Real_Literal_Constant, Signed_Real_Literal_Constant, Int_Literal_Constant, Signed_Int_Literal_Constant,
-        Logical_Literal_Constant]
     EXPRESSION_TYPES = Union[
         LITERAL_TYPES, Expr, Add_Operand, Mult_Operand, Level_2_Expr, Level_3_Expr, Level_4_Expr, Level_5_Expr,
         Intrinsic_Function_Reference]
@@ -2034,26 +2060,7 @@ def const_eval_nodes(ast: Program) -> Program:
         if val is None:
             return False
         assert not np.isnan(val)
-        if isinstance(val, np.bool_):
-            val = Logical_Literal_Constant('.true.' if val else '.false.')
-        elif isinstance(val, NUMPY_INTS):
-            bytez = _count_bytes(type(val))
-            if val < 0:
-                val = Signed_Int_Literal_Constant(f"{val}" if bytez == 4 else f"{val}_{bytez}")
-            else:
-                val = Int_Literal_Constant(f"{val}" if bytez == 4 else f"{val}_{bytez}")
-        elif isinstance(val, NUMPY_REALS):
-            bytez = _count_bytes(type(val))
-            valstr = str(val)
-            if bytez == 8:
-                if 'e' in valstr:
-                    valstr = valstr.replace('e', 'D')
-                else:
-                    valstr = f"{valstr}D0"
-            if val < 0:
-                val = Signed_Real_Literal_Constant(valstr)
-            else:
-                val = Real_Literal_Constant(valstr)
+        val = numpy_type_to_literal(val)
         replace_node(n, val)
         return True
 
@@ -2072,9 +2079,34 @@ def const_eval_nodes(ast: Program) -> Program:
     for knode in reversed(walk(ast, Kind_Selector)):
         _, kind, _ = knode.children
         _const_eval_node(kind)
-    for node in reversed(walk(ast,
-                              (Explicit_Shape_Spec, Loop_Control, Call_Stmt, Function_Reference, Initialization))):
+
+    NON_EXPRESSION_TYPES = Union[Explicit_Shape_Spec, Loop_Control, Call_Stmt, Function_Reference, Initialization]
+    for node in reversed(walk(ast, NON_EXPRESSION_TYPES)):
         for nm in reversed(walk(node, Name)):
             _const_eval_node(nm)
 
+    return ast
+
+
+def inject_const_evals(ast: Program,
+                       inject_const_components: Optional[Dict[Tuple[SPEC, SPEC], NUMPY_TYPES]] = None) -> Program:
+    inject_const_components = inject_const_components or {}
+
+    alias_map = alias_specs(ast)
+    for k, v in inject_const_components.items():
+        assert isinstance(v, NUMPY_TYPES)
+        tspec, cspec = k
+        assert tspec in alias_map
+        tdef = alias_map[tspec].parent
+        assert isinstance(tdef, Derived_Type_Def)
+
+    for dr in walk(ast, Data_Ref):
+        scope_spec = find_scope_spec(dr)
+        root_tspec, rest = _dataref_root(dr, scope_spec, alias_map)
+        assert root_tspec and all(isinstance(c, Name) for c in rest)
+        comp_spec: SPEC = tuple(c.string for c in rest)
+        key = (root_tspec.spec, comp_spec)
+        if key in inject_const_components:
+            lit = numpy_type_to_literal(inject_const_components[key])
+            replace_node(dr, lit)
     return ast
