@@ -378,7 +378,7 @@ def _cdiv(x, y):
 
 
 UNARY_OPS = {
-    '.NOT.': operator.not_,
+    '.NOT.': np.logical_not,
     '-': operator.neg,
 }
 
@@ -393,8 +393,8 @@ BINARY_OPS = {
     '-': operator.sub,
     '*': operator.mul,
     '/': _cdiv,
-    '.OR.': operator.or_,
-    '.AND.': operator.and_,
+    '.OR.': np.logical_or,
+    '.AND.': np.logical_and,
     '**': operator.pow,
 }
 
@@ -1473,9 +1473,7 @@ def _reparent_children(node: Base):
             c.parent = node
 
 
-def prune_unused_objects(ast: Program,
-                         keepers: List[Union[Module, Main_Program, Subroutine_Subprogram, Function_Subprogram]]) \
-        -> Program:
+def prune_unused_objects(ast: Program, keepers: List[SPEC]) -> Program:
     """
     Precondition: All the indirections have been taken out of the program.
     """
@@ -1484,6 +1482,8 @@ def prune_unused_objects(ast: Program,
     ident_map = identifier_specs(ast)
     alias_map = alias_specs(ast)
     survivors: Set[SPEC] = set()
+    keepers = [alias_map[k].parent for k in keepers]
+    assert all(isinstance(k, PRUNABLE_OBJECT_TYPES) for k in keepers)
 
     def _keep_from(node: Base):
         for nm in walk(node, Name):
