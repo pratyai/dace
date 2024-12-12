@@ -170,6 +170,7 @@ class Function_Subprogram_Node(FNode):
                  elemental: bool,
                  **kwargs):
         super().__init__(**kwargs)
+        assert type != 'VOID'
         self.name = name
         self.type = type
         self.ret = ret
@@ -535,7 +536,13 @@ class Data_Component_Def_Stmt_Node(FNode):
 
 
 class Data_Ref_Node(FNode):
-    _attributes = ()
+    def __init__(self, parent_ref: FNode, part_ref: FNode, type: str = 'VOID', **kwargs):
+        super().__init__(**kwargs)
+        self.parent_ref = parent_ref
+        self.part_ref = part_ref
+        self.type = type
+
+    _attributes = ('type',)
     _fields = ('parent_ref', 'part_ref')
 
 

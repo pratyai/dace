@@ -1,18 +1,18 @@
 # Copyright 2023 ETH Zurich and the DaCe authors. All rights reserved.
 
 import copy
-from dataclasses import dataclass
 import os
 import warnings
 from copy import deepcopy as dpcp
+from dataclasses import dataclass
 from itertools import chain
 from pathlib import Path
 from typing import List, Optional, Set, Dict, Tuple, Union
 
 import networkx as nx
-from fparser.common.readfortran import FortranFileReader as ffr, FortranStringReader, FortranFileReader
+from fparser.common.readfortran import FortranFileReader as ffr, FortranStringReader
 from fparser.common.readfortran import FortranStringReader as fsr
-from fparser.two.Fortran2003 import Program, Name, Subroutine_Subprogram, Module_Stmt
+from fparser.two.Fortran2003 import Program, Name, Module_Stmt
 from fparser.two.parser import ParserFactory as pf, ParserFactory
 from fparser.two.symbol_table import SymbolTable
 from fparser.two.utils import Base, walk
@@ -29,13 +29,14 @@ from dace import subsets as subs
 from dace import symbolic as sym
 from dace.data import Scalar, Structure
 from dace.frontend.fortran.ast_desugaring import SPEC, ENTRY_POINT_OBJECT_TYPES, find_name_of_stmt, find_name_of_node, \
-    identifier_specs, append_children, correct_for_function_calls, remove_access_statements, sort_modules, \
+    identifier_specs, append_children, correct_for_function_calls, sort_modules, \
     deconstruct_enums, deconstruct_interface_calls, deconstruct_procedure_calls, prune_unused_objects, \
     deconstruct_associations, assign_globally_unique_subprogram_names, assign_globally_unique_variable_names, \
-    consolidate_uses, prune_branches, const_eval_nodes, lower_identifier_names, \
+    consolidate_uses, prune_branches, const_eval_nodes, lower_identifier_names, inject_const_evals, \
     remove_access_statements, ident_spec, NAMED_STMTS_OF_INTEREST_TYPES
 from dace.frontend.fortran.ast_internal_classes import FNode, Main_Program_Node
 from dace.frontend.fortran.ast_utils import UseAllPruneList, children_of_type
+from dace.frontend.fortran.config_propagation_data import config_injection_list
 from dace.frontend.fortran.intrinsics import IntrinsicSDFGTransformation
 from dace.properties import CodeBlock
 
@@ -1476,15 +1477,18 @@ class AST_translator:
                                         start = i.range[0]
                                         stop = i.range[1]
                                         text_start = ast_utils.ProcessedWriter(sdfg, self.name_mapping,
-                                                                                 placeholders=self.placeholders,
-                                                                                 placeholders_offsets=self.placeholders_offsets,
-                                                                                 rename_dict=self.replace_names).write_code(start)
+                                                                               placeholders=self.placeholders,
+                                                                               placeholders_offsets=self.placeholders_offsets,
+                                                                               rename_dict=self.replace_names).write_code(
+                                            start)
                                         text_stop = ast_utils.ProcessedWriter(sdfg, self.name_mapping,
-                                                                                placeholders=self.placeholders,
-                                                                                placeholders_offsets=self.placeholders_offsets,
-                                                                                rename_dict=self.replace_names).write_code(stop)
-                                        shape.append("( "+ text_stop + ") - ( "+ text_start + ") ")
-                                        mysize=mysize*sym.pystr_to_symbolic("( "+ text_stop + ") - ( "+ text_start + ") ")
+                                                                              placeholders=self.placeholders,
+                                                                              placeholders_offsets=self.placeholders_offsets,
+                                                                              rename_dict=self.replace_names).write_code(
+                                            stop)
+                                        shape.append("( " + text_stop + ") - ( " + text_start + ") ")
+                                        mysize = mysize * sym.pystr_to_symbolic(
+                                            "( " + text_stop + ") - ( " + text_start + ") ")
                                         index_list.append(None)
                                         # raise NotImplementedError("Index in ParDecl should be ALL")
                                 else:
@@ -3099,7 +3103,8 @@ def collect_floating_subprograms(ast: Program, source_list: Dict[str, str], incl
     return ast
 
 
-def name_and_rename_dict_creator(parse_order: list,dep_graph:nx.DiGraph)->Tuple[Dict[str, List[str]], Dict[str, Dict[str, str]]]:
+def name_and_rename_dict_creator(parse_order: list, dep_graph: nx.DiGraph) -> Tuple[
+    Dict[str, List[str]], Dict[str, Dict[str, str]]]:
     name_dict = {}
     rename_dict = {}
     for i in parse_order:
@@ -3153,6 +3158,7 @@ def create_sdfg_from_fortran_file_with_options(
     ast = deconstruct_enums(ast)
     ast = deconstruct_associations(ast)
     ast = remove_access_statements(ast)
+    ast = inject_const_evals(ast, config_injection_list())
     with open('/Users/pmz/Downloads/ecrad_ast_v1.f90', 'w') as f:
         f.write(ast.tofortran())
     ast = correct_for_function_calls(ast)
@@ -3160,15 +3166,31 @@ def create_sdfg_from_fortran_file_with_options(
     with open('/Users/pmz/Downloads/ecrad_ast_v2.f90', 'w') as f:
         f.write(ast.tofortran())
     ast = deconstruct_interface_calls(ast)
+    with open('/Users/pmz/Downloads/ecrad_ast_v3.f90', 'w') as f:
+        f.write(ast.tofortran())
+    assert 'nf90_get_var' not in ast.tofortran()
     ast = const_eval_nodes(ast)
     ast = prune_branches(ast)
     ast = prune_unused_objects(ast, cfg.entry_points)
-    with open('/Users/pmz/Downloads/ecrad_ast_v3.f90', 'w') as f:
+    with open('/Users/pmz/Downloads/ecrad_ast_v4.f90', 'w') as f:
+        f.write(ast.tofortran())
+    # TODO: If we are a bit careful with `inject_const_evals` or  its list `config_injection_list()`, a second round of
+    #  pruning will not be needed.
+    ast = prune_branches(ast)
+    ast = prune_unused_objects(ast, cfg.entry_points)
+    with open('/Users/pmz/Downloads/ecrad_ast_v5.f90', 'w') as f:
         f.write(ast.tofortran())
     ast = assign_globally_unique_subprogram_names(ast, {('radiation_interface', 'radiation')})
+    with open('/Users/pmz/Downloads/ecrad_ast_v1.1.txt', 'w') as f:
+        f.write(ast.torepr())
+    with open('/Users/pmz/Downloads/ecrad_ast_v6.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = assign_globally_unique_variable_names(ast, {'config'})
+    with open('/Users/pmz/Downloads/ecrad_ast_v7.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = consolidate_uses(ast)
-
+    with open('/Users/pmz/Downloads/ecrad_ast_v8.f90', 'w') as f:
+        f.write(ast.tofortran())
     dep_graph = compute_dep_graph(ast, 'radiation_interface')
     parse_order = list(reversed(list(nx.topological_sort(dep_graph))))
 
@@ -3466,9 +3488,8 @@ def create_sdfg_from_fortran_file_with_options(
     for j in program.subroutine_definitions:
 
         if subroutine_name is not None:
-            if not subroutine_name+"_decon" in j.name.name :
-                    print("Skipping 1 ", j.name.name)
-                    continue
+            if not subroutine_name in j.name.name:
+                continue
 
         if j.execution_part is None:
             continue
@@ -3521,14 +3542,7 @@ def create_sdfg_from_fortran_file_with_options(
         for j in i.subroutine_definitions:
 
             if subroutine_name is not None:
-                #special for radiation
-                if subroutine_name=='radiation':
-                    if not 'radiation' == j.name.name :
-                        print("Skipping ", j.name.name)
-                        continue
-
-                elif not subroutine_name in j.name.name :
-                    print("Skipping ", j.name.name)
+                if not subroutine_name in j.name.name:
                     continue
 
             if j.execution_part is None:
