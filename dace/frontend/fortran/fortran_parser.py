@@ -495,11 +495,11 @@ class AST_translator:
                 if arr.transient and arr_name in arg_names:
                     print(f"Changing the transient status to false of {arr_name} because it's a function argument")
                     arr.transient = False
-        
+
         # for i in sdfg.arrays:
         #     if i in sdfg.symbols:
         #         sdfg.arrays.pop(i)
-        
+
         self.transient_mode = True
         self.translate(self.startpoint.execution_part.execution, sdfg)
 
@@ -730,15 +730,15 @@ class AST_translator:
         guard_substate = sdfg.add_state("Guard" + name)
         final_substate = sdfg.add_state("Merge" + name)
         self.last_sdfg_states[sdfg] = final_substate
-        
+
         sdfg.add_edge(begin_state, guard_substate, InterstateEdge())
 
         condition = ast_utils.ProcessedWriter(sdfg, self.name_mapping, placeholders=self.placeholders,
                                               placeholders_offsets=self.placeholders_offsets,
                                               rename_dict=self.replace_names).write_code(node.cond)
 
-        
-        
+
+
         begin_loop_state = sdfg.add_state("BeginWhile" + name)
         end_loop_state = sdfg.add_state("EndWhile" + name)
         self.last_sdfg_states[sdfg] = begin_loop_state
@@ -2157,7 +2157,7 @@ class AST_translator:
                     for j in node.specification_part.specifications:
                         self.declstmt2sdfg(j, new_sdfg)
                     self.transient_mode = old_mode
-                
+
 
                 #for i in new_sdfg.arrays:
                 #    if i in new_sdfg.symbols:
@@ -2630,7 +2630,7 @@ class AST_translator:
                 new_exec = ast_transforms.ReplaceArrayConstructor().visit(ast_internal_classes.BinOp_Node(lval=ast_internal_classes.Name_Node(name=node.name, type=node.type),
                                                 op="=", rval=node.init, line_number=node.line_number, parent=node.parent,type=node.type))
                 self.translate(new_exec, sdfg)
-            else:    
+            else:
                 self.translate(
                     ast_internal_classes.BinOp_Node(lval=ast_internal_classes.Name_Node(name=node.name, type=node.type),
                                                 op="=", rval=node.init, line_number=node.line_number,parent=node.parent,type=node.type), sdfg)
@@ -2950,7 +2950,7 @@ def create_sdfg_from_string(
     program = ast_transforms.CallToArray(functions_and_subroutines_builder).visit(program)
     program = ast_transforms.IfConditionExtractor().visit(program)
     program = ast_transforms.CallExtractor().visit(program)
-    
+
 
     program = ast_transforms.FunctionCallTransformer().visit(program)
     program = ast_transforms.FunctionToSubroutineDefiner().visit(program)
@@ -3298,7 +3298,7 @@ def create_sdfg_from_fortran_file_with_options(
         #ast = assign_globally_unique_variable_names(ast, {'config','thermodynamics','flux','gas','cloud','aerosol','single_level'})
         ast = consolidate_uses(ast)
     else:
-        ast = correct_for_function_calls(ast)    
+        ast = correct_for_function_calls(ast)
 
     dep_graph = compute_dep_graph(ast, 'radiation_interface')
     parse_order = list(reversed(list(nx.topological_sort(dep_graph))))
@@ -3396,7 +3396,7 @@ def create_sdfg_from_fortran_file_with_options(
     # program = ast_transforms.CallToArray(functions_and_subroutines_builder, rename_dict).visit(program)
     # program = ast_transforms.TypeInterference(program).visit(program)
     # program = ast_transforms.ReplaceInterfaceBlocks(program, functions_and_subroutines_builder).visit(program)
-    
+
     program = ast_transforms.IfConditionExtractor().visit(program)
 
     program = ast_transforms.TypeInference(program, assert_voids=False).visit(program)
