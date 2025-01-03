@@ -91,17 +91,23 @@ if __name__ == "__main__":
 
     # Construct the primary ECRad AST.
     parse_cfg = ParseConfig(
-        main=Path(f"{base_icon_path}/{icon_file}"),
-        sources=[Path(f) for f in fortran_files],
+        main=Path('/Users/pmz/Downloads/ecrad_ast_v0.f90'),
+        # main=Path(f"{base_icon_path}/{icon_file}"),
+        # sources=[Path(f) for f in fortran_files],
         entry_points=[('radiation_interface', 'radiation')],
         config_injections=config_injection_list('conf_files'),
     )
-    #already_parsed_ast=None
+    # already_parsed_ast=None
     if already_parsed_ast is None:
         ecrad_ast = create_fparser_ast(parse_cfg)
+        ecrad_ast_str = ecrad_ast.tofortran()
+        # for k in PROPAGATED_CONSTS.keys():
+        #     if k.split('%')[-1] not in ecrad_ast_str:
+        #         print(f"CONST: {k} -> {PROPAGATED_CONSTS[k]}")
+        # exit()
         already_parsed_ast_bool = False
     else:
-        mini_parser=pf().create(std="f2008")
+        mini_parser = pf().create(std="f2008")
         ecrad_ast = mini_parser(ffr(file_candidate=already_parsed_ast))
         already_parsed_ast_bool = True
 
@@ -201,6 +207,8 @@ if __name__ == "__main__":
     #      ast_internal.Bool_Literal_Node(value='False')))
 
     # propagation_info = lister.simple_assignments + lister2.simple_assignments
+    # from dace.frontend.fortran.config_propagation_data import generate_propagation_info
+    # generate_propagation_info(propagation_info)
 
     # # let's fix the propagation info for ECRAD
     # for i in propagation_info:
@@ -223,8 +231,6 @@ if __name__ == "__main__":
                         'radiation_tripleclouds_sw', 'radiation_homogeneous_sw']
     )
 
-    # generate_propagation_info(propagation_info)
-
     # previous steps were used to generate the initial list of assignments for ECRAD
     # this includes user config and internal enumerations of ICON
     # the previous ASTs can be now disregarded
@@ -238,9 +244,9 @@ if __name__ == "__main__":
         subroutine_name="radiation",
         # subroutine_name="cloud_generator",
         normalize_offsets=True,
-        #propagation_info=propagation_info,
-        #enum_propagator_ast=radiation_config_ast,
-        #enum_propagator_files=enum_propagator_files,
+        # propagation_info=propagation_info,
+        # enum_propagator_ast=radiation_config_ast,
+        # enum_propagator_files=enum_propagator_files,
         used_functions_config=cfg,
         already_parsed_ast=already_parsed_ast_bool,
         config_injections=config_injection_list('conf_files')

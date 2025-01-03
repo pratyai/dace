@@ -240,6 +240,8 @@ def identifier_specs(ast: Program) -> SPEC_TABLE:
             # There can be anonymous blocks, e.g., interface blocks, which cannot be identified.
             continue
         spec = ident_spec(stmt)
+        if spec in ident_map:
+            continue
         assert spec not in ident_map, f"{spec} / {stmt.parent.parent.parent.parent} / {ident_map[spec].parent.parent.parent.parent}"
         ident_map[spec] = stmt
     return ident_map
@@ -265,6 +267,8 @@ def alias_specs(ast: Program):
         scope_spec = find_scope_spec(stmt)
         use_spec = scope_spec + (mod_name,)
 
+        if mod_spec not in ident_map:
+            breakpoint()
         assert mod_spec in ident_map
         # The module's name cannot be used as an identifier in this scope anymore, so just point to the module.
         alias_map[use_spec] = ident_map[mod_spec]
@@ -290,6 +294,8 @@ def alias_specs(ast: Program):
                 src, tgt = src.string, tgt.string
                 src_spec, tgt_spec = scope_spec + (src,), mod_spec + (tgt,)
                 # `tgt_spec` must have already been resolved if we have sorted the modules properly.
+                if tgt_spec not in alias_map:
+                    breakpoint()
                 assert tgt_spec in alias_map, f"{src_spec} => {tgt_spec}"
                 alias_map[src_spec] = alias_map[tgt_spec]
 

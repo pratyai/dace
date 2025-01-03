@@ -3342,6 +3342,14 @@ def create_sdfg_from_fortran_file_with_options(
         ast = deconstruct_interface_calls(ast)
         ast = const_eval_nodes(ast)
         ast = prune_branches(ast)
+        with open('/Users/pmz/Downloads/before_pruning.f90', 'w') as f:
+            f.write(ast.tofortran())
+        ast = prune_unused_objects(ast, cfg.entry_points)
+        with open('/Users/pmz/Downloads/after_pruning.f90', 'w') as f:
+            f.write(ast.tofortran())
+        # TODO: If we are a bit careful with `inject_const_evals` or  its list `config_injection_list()`, a second round of
+        #  pruning will not be needed.
+        ast = prune_branches(ast)
         ast = prune_unused_objects(ast, cfg.entry_points)
         # ast = assign_globally_unique_subprogram_names(ast, {('radiation_interface', 'radiation')})
         # ast = assign_globally_unique_variable_names(ast, {'config','thermodynamics','flux','gas','cloud','aerosol','single_level'})
@@ -3349,6 +3357,8 @@ def create_sdfg_from_fortran_file_with_options(
     else:
         ast = correct_for_function_calls(ast)
 
+    with open('/Users/pmz/Downloads/after_pruning.f90', 'w') as f:
+        f.write(ast.tofortran())
     dep_graph = compute_dep_graph(ast, 'radiation_interface')
     parse_order = list(reversed(list(nx.topological_sort(dep_graph))))
 
@@ -3676,8 +3686,7 @@ def create_sdfg_from_fortran_file_with_options(
     for j in program.subroutine_definitions:
 
         if subroutine_name is not None:
-            if not subroutine_name + "_decon" in j.name.name:
-                print("Skipping 1 ", j.name.name)
+            if not subroutine_name in j.name.name:
                 continue
 
         if j.execution_part is None:
