@@ -1517,13 +1517,11 @@ class AST_translator:
                                         start = i.range[0]
                                         stop = i.range[1]
                                         text_start = ast_utils.ProcessedWriter(
-                                            sdfg, self.name_mapping,
-                                            placeholders=self.placeholders,
+                                            sdfg, self.name_mapping, placeholders=self.placeholders,
                                             placeholders_offsets=self.placeholders_offsets,
                                             rename_dict=self.replace_names).write_code(start)
                                         text_stop = ast_utils.ProcessedWriter(
-                                            sdfg, self.name_mapping,
-                                            placeholders=self.placeholders,
+                                            sdfg, self.name_mapping, placeholders=self.placeholders,
                                             placeholders_offsets=self.placeholders_offsets,
                                             rename_dict=self.replace_names).write_code(stop)
                                         shape.append(
@@ -2763,7 +2761,7 @@ class ParseConfig:
         self.sources = sources
         self.includes = includes
         self.entry_points = entry_points
-        self.config_injections = config_injections
+        self.config_injections = config_injections or []
 
 
 def create_fparser_ast(cfg: ParseConfig) -> Program:
@@ -2813,9 +2811,8 @@ class SDFGConfig:
         for k in entry_points:
             if isinstance(entry_points[k], str):
                 entry_points[k] = [entry_points[k]]
-        config_injections = config_injections or []
         self.entry_points = entry_points
-        self.config_injections = config_injections
+        self.config_injections = config_injections or []
         self.normalize_offsets = normalize_offsets
         self.multiple_sdfgs = multiple_sdfgs
 
@@ -2830,13 +2827,14 @@ def create_sdfg_from_internal_ast(own_ast: ast_components.InternalFortranAst, pr
     program = ast_transforms.StructConstructorToFunctionCall(
         ast_transforms.FindFunctionAndSubroutines.from_node(program).names).visit(program)
     program = ast_transforms.CallToArray(ast_transforms.FindFunctionAndSubroutines.from_node(program)).visit(program)
+    program = ast_transforms.IfConditionExtractor().visit(program)
     program = ast_transforms.CallExtractor().visit(program)
 
     program = ast_transforms.FunctionCallTransformer().visit(program)
     program = ast_transforms.FunctionToSubroutineDefiner().visit(program)
     program = ast_transforms.PointerRemoval().visit(program)
     program = ast_transforms.ElementalFunctionExpander(
-        ast_transforms.FindFunctionAndSubroutines.from_node(program).names).visit(program)
+        ast_transforms.FindFunctionAndSubroutines.from_node(program).names, program).visit(program)
     for i in program.modules:
         count = 0
         for j in i.function_definitions:
@@ -2863,12 +2861,17 @@ def create_sdfg_from_internal_ast(own_ast: ast_components.InternalFortranAst, pr
         transformation.initialize(program)
         program = transformation.visit(program)
 
+    array_dims_info = ast_transforms.ArrayDimensionSymbolsMapper()
+    array_dims_info.visit(program)
+    program = ast_transforms.ArrayDimensionConfigInjector(array_dims_info, cfg.config_injections).visit(program)
+
     program = ast_transforms.ArgumentExtractor(program).visit(program)
 
     program = ast_transforms.ForDeclarer().visit(program)
     program = ast_transforms.IndexExtractor(program, cfg.normalize_offsets).visit(program)
     program = ast_transforms.optionalArgsExpander(program)
     program = ast_transforms.allocatableReplacer(program)
+    program = ast_transforms.ParDeclOffsetNormalizer(program).visit(program)
 
     structs_lister = ast_transforms.StructLister()
     structs_lister.visit(program)
@@ -3017,6 +3020,10 @@ def create_sdfg_from_string(
         program = transformation.visit(program)
 
     program = ast_transforms.ArgumentExtractor(program).visit(program)
+
+    array_dims_info = ast_transforms.ArrayDimensionSymbolsMapper()
+    array_dims_info.visit(program)
+    program = ast_transforms.ArrayDimensionConfigInjector(array_dims_info, cfg.config_injections).visit(program)
 
     program = ast_transforms.ArrayToLoop(program).visit(program)
     program = ast_transforms.ForDeclarer().visit(program)
@@ -3324,8 +3331,6 @@ def create_sdfg_from_fortran_file_with_options(
     :return: The resulting SDFG
 
     """
-    config_injections = config_injections or []
-
     if not already_parsed_ast:
         ast = deconstruct_enums(ast)
         ast = deconstruct_associations(ast)
