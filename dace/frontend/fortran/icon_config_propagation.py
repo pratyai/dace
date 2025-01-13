@@ -10,7 +10,7 @@ from fparser.two.parser import ParserFactory as pf
 
 from dace.frontend.fortran.ast_desugaring import ConstTypeInjection
 from dace.frontend.fortran.config_propagation_data import deserialse_v2
-from dace.frontend.fortran.fortran_parser import ParseConfig, create_fparser_ast
+from dace.frontend.fortran.fortran_parser import ParseConfig, create_fparser_ast, SDFGConfig
 
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
@@ -96,6 +96,11 @@ if __name__ == "__main__":
         entry_points=[('radiation_interface', 'radiation')],
         config_injections=config_injection_list('dace/frontend/fortran/conf_files'),
     )
+    sdfg_cfg = SDFGConfig(
+        entry_points={'radiation': ['radiation_interface', 'radiation']},
+        config_injections=parse_cfg.config_injections,
+        normalize_offsets=True,
+        multiple_sdfgs=False)
     #already_parsed_ast=None
     if already_parsed_ast is None:
         ecrad_ast = create_fparser_ast(parse_cfg)
@@ -233,11 +238,11 @@ if __name__ == "__main__":
     already_parsed_ast_bool = False
     fortran_parser.create_sdfg_from_fortran_file_with_options(
         parse_cfg,
+        sdfg_cfg,
         ecrad_ast,
         sdfgs_dir=sdfgs_dir,
         subroutine_name="radiation",
         # subroutine_name="cloud_generator",
-        normalize_offsets=True,
         #propagation_info=propagation_info,
         #enum_propagator_ast=radiation_config_ast,
         #enum_propagator_files=enum_propagator_files,

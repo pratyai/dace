@@ -3266,11 +3266,11 @@ class FindUsedFunctionsConfig:
 
 
 def create_sdfg_from_fortran_file_with_options(
-        cfg: ParseConfig,
+        parse_cfg: ParseConfig,
+        sdfg_cfg: SDFGConfig,
         ast: Program,
         sdfgs_dir,
         subroutine_name: Optional[str] = None,
-        normalize_offsets: bool = True,
         propagation_info=None,
         enum_propagator_files: Optional[List[str]] = None,
         enum_propagator_ast=None,
@@ -3294,7 +3294,7 @@ def create_sdfg_from_fortran_file_with_options(
         ast = deconstruct_interface_calls(ast)
 
         print("FParser Op: Inject configs & prune...")
-        ast = inject_const_evals(ast, cfg.config_injections)
+        ast = inject_const_evals(ast, parse_cfg.config_injections)
         ast = const_eval_nodes(ast)
         ast = convert_data_statements_into_assignments(ast)
 
@@ -3304,24 +3304,24 @@ def create_sdfg_from_fortran_file_with_options(
         ast = make_practically_constant_global_vars_constants(ast)
         ast = const_eval_nodes(ast)
         ast = prune_branches(ast)
-        ast = prune_unused_objects(ast, cfg.entry_points)
+        ast = prune_unused_objects(ast, parse_cfg.entry_points)
 
         print("FParser Op: Fix arguments & prune...")
         # Another round of pruning after fixing the practically constant arguments, just in case.
-        ast = make_practically_constant_arguments_constants(ast, cfg.entry_points)
+        ast = make_practically_constant_arguments_constants(ast, parse_cfg.entry_points)
         ast = const_eval_nodes(ast)
         ast = prune_branches(ast)
-        ast = prune_unused_objects(ast, cfg.entry_points)
+        ast = prune_unused_objects(ast, parse_cfg.entry_points)
 
         print("FParser Op: Fix local vars & prune...")
         # Another round of pruning after fixing the locally constant variables, just in case.
         ast = exploit_locally_constant_variables(ast)
         ast = const_eval_nodes(ast)
         ast = prune_branches(ast)
-        ast = prune_unused_objects(ast, cfg.entry_points)
+        ast = prune_unused_objects(ast, parse_cfg.entry_points)
 
         print("FParser Op: Create global initializers & rename uniquely...")
-        ast = create_global_initializers(ast, cfg.entry_points)
+        ast = create_global_initializers(ast, parse_cfg.entry_points)
         ast = assign_globally_unique_subprogram_names(ast, {('radiation_interface', 'radiation')})
         ast = assign_globally_unique_variable_names(ast, {'config','thermodynamics','flux','gas','cloud','aerosol','single_level'})
         ast = consolidate_uses(ast)
@@ -3404,7 +3404,7 @@ def create_sdfg_from_fortran_file_with_options(
     # program = ast_transforms.PropagateEnums().visit(program)
     # program = ast_transforms.Flatten_Classes(structs_lister.structs).visit(program)
     program.structures = ast_transforms.Structures(structs_lister.structs)
-    program = run_ast_transformations(partial_ast, program, cfg, True)
+    program = run_ast_transformations(partial_ast, program, sdfg_cfg, True)
 
     
 
@@ -3595,8 +3595,8 @@ def create_sdfg_from_fortran_file_with_options(
 
         print(f"Building SDFG {j.name.name}")
         startpoint = j
-        ast2sdfg = AST_translator(__file__, multiple_sdfgs=False, startpoint=startpoint, sdfg_path=sdfgs_dir,
-                                  normalize_offsets=normalize_offsets)
+        ast2sdfg = AST_translator(__file__, multiple_sdfgs=sdfg_cfg.multiple_sdfgs, startpoint=startpoint, sdfg_path=sdfgs_dir,
+                                  normalize_offsets=sdfg_cfg.normalize_offsets)
         sdfg = SDFG(j.name.name)
         ast2sdfg.functions_and_subroutines = functions_and_subroutines_builder.names
         ast2sdfg.structures = program.structures
@@ -3664,12 +3664,12 @@ def create_sdfg_from_fortran_file_with_options(
             startpoint = j
             ast2sdfg = AST_translator(
                 __file__,
-                multiple_sdfgs=False,
+                multiple_sdfgs=sdfg_cfg.multiple_sdfgs,
                 startpoint=startpoint,
                 sdfg_path=sdfgs_dir,
                 # toplevel_subroutine_arg_names=arg_pruner.visited_funcs[toplevel_subroutine],
                 # subroutine_used_names=arg_pruner.used_in_all_functions,
-                normalize_offsets=normalize_offsets
+                normalize_offsets=sdfg_cfg.normalize_offsets
             )
             sdfg = SDFG(j.name.name)
             ast2sdfg.functions_and_subroutines = functions_and_subroutines_builder.names
