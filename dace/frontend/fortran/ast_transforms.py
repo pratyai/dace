@@ -146,7 +146,7 @@ class NodeVisitor(object):
 
     def visit(self, node: ast_internal_classes.FNode):
         method = 'visit_' + node.__class__.__name__
-        print('GO:', method)
+        # print('GO:', method)
         visitor = getattr(self, method, self.generic_visit)
         return visitor(node)
 
@@ -1480,9 +1480,9 @@ class IndexExtractor(NodeTransformer):
                         ityp = self.scope_vars.get_var(i.parent, i.name).type
                     else:
                         ityp = i.type
-                    if ityp == 'VOID':
-                        breakpoint()
-                    assert ityp != 'VOID'
+                    # if ityp == 'VOID':
+                    #     breakpoint()
+                    # assert ityp != 'VOID'
                     if isinstance(i, ast_internal_classes.ParDecl_Node):
                         continue
                     tmp_name = "tmp_index_" + str(temp)

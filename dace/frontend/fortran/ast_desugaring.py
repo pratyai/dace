@@ -2995,3 +2995,32 @@ def convert_data_statements_into_assignments(ast: Program) -> Program:
             prepend_children(xpart, repls)
 
     return ast
+
+
+def replace_data_dependent_array_access_with_copy(ast: Program) -> Program:
+    alias_map = alias_specs(ast)
+
+    for pr in walk(ast, Part_Ref):
+        part_name, subsc = pr.children
+        subsc = subsc.children
+        for s in subsc:
+            if not isinstance(s, (Name, Data_Ref, Part_Ref)):
+                continue
+            if isinstance(s, Name):
+                loc = search_real_local_alias_spec(s, alias_map)
+                assert loc
+                sdecl = alias_map[loc]
+                assert isinstance(sdecl, Entity_Decl)
+                styp = find_type_of_entity(sdecl, alias_map)
+                assert styp and styp.spec in {('INTEGER1',), ('INTEGER2',), ('INTEGER4',), ('INTEGER8',)}, styp
+                if styp.shape:
+                    breakpoint()
+                continue
+            elif isinstance(s, Part_Ref):
+                breakpoint()
+            elif isinstance(s, Data_Ref):
+                scope_spec = find_scope_spec(s.parent)
+                styp = find_type_dataref(s, scope_spec, alias_map)
+                breakpoint()
+
+    return ast

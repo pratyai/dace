@@ -36,7 +36,7 @@ from dace.frontend.fortran.ast_desugaring import ENTRY_POINT_OBJECT_CLASSES, NAM
     inject_const_evals, remove_access_statements, ident_spec, ConstTypeInjection, ConstInjection, \
     make_practically_constant_arguments_constants, make_practically_constant_global_vars_constants, \
     exploit_locally_constant_variables, assign_globally_unique_variable_names, assign_globally_unique_subprogram_names, \
-    create_global_initializers, convert_data_statements_into_assignments
+    create_global_initializers, convert_data_statements_into_assignments, replace_data_dependent_array_access_with_copy
 from dace.frontend.fortran.ast_internal_classes import FNode, Main_Program_Node
 from dace.frontend.fortran.ast_transforms import NodeVisitor
 from dace.frontend.fortran.ast_utils import children_of_type
@@ -2226,7 +2226,7 @@ class AST_translator:
             from dace.transformation.pass_pipeline import FixedPointPipeline
             FixedPointPipeline([LiftStructViews()]).apply_pass(new_sdfg, {})
             new_sdfg.validate()
-            # sdfg.save('/Users/pmz/Downloads/bleh.sdfg')
+            sdfg.save('/Users/pmz/Downloads/bleh.sdfg')
             # tmp_sdfg=copy.deepcopy(new_sdfg)
             new_sdfg.simplify()
             # new_sdfg.validate()
@@ -3335,22 +3335,22 @@ def create_sdfg_from_fortran_file_with_options(
         ast = make_practically_constant_global_vars_constants(ast)
         ast = const_eval_nodes(ast)
         ast = prune_branches(ast)
-        with open('/Users/pmz/Downloads/before_pruning.f90', 'w') as f:
-            f.write(ast.tofortran())
+        # with open('/Users/pmz/Downloads/before_pruning.f90', 'w') as f:
+        #     f.write(ast.tofortran())
         ast = prune_unused_objects(ast, parse_cfg.entry_points)
-        with open('/Users/pmz/Downloads/after_pruning.f90', 'w') as f:
-            f.write(ast.tofortran())
+        # with open('/Users/pmz/Downloads/after_pruning.f90', 'w') as f:
+        #     f.write(ast.tofortran())
 
         print("FParser Op: Fix arguments & prune...")
         # Another round of pruning after fixing the practically constant arguments, just in case.
         ast = make_practically_constant_arguments_constants(ast, parse_cfg.entry_points)
         ast = const_eval_nodes(ast)
         ast = prune_branches(ast)
-        with open('/Users/pmz/Downloads/before_pruning.f90', 'w') as f:
-            f.write(ast.tofortran())
+        # with open('/Users/pmz/Downloads/before_pruning.f90', 'w') as f:
+        #     f.write(ast.tofortran())
         ast = prune_unused_objects(ast, parse_cfg.entry_points)
-        with open('/Users/pmz/Downloads/after_pruning.f90', 'w') as f:
-            f.write(ast.tofortran())
+        # with open('/Users/pmz/Downloads/after_pruning.f90', 'w') as f:
+        #     f.write(ast.tofortran())
 
         print("FParser Op: Fix local vars & prune...")
         # Another round of pruning after fixing the locally constant variables, just in case.
@@ -3358,6 +3358,8 @@ def create_sdfg_from_fortran_file_with_options(
         ast = const_eval_nodes(ast)
         ast = prune_branches(ast)
         ast = prune_unused_objects(ast, parse_cfg.entry_points)
+
+        ast = replace_data_dependent_array_access_with_copy(ast)
 
         print("FParser Op: Create global initializers & rename uniquely...")
         ast = create_global_initializers(ast, parse_cfg.entry_points)
@@ -3367,7 +3369,7 @@ def create_sdfg_from_fortran_file_with_options(
     else:
         ast = correct_for_function_calls(ast)
 
-    with open('/Users/pmz/Downloads/after_pruning.f90', 'w') as f:
+    with open('/Users/pmz/Downloads/before_pruning.f90', 'w') as f:
         f.write(ast.tofortran())
     dep_graph = compute_dep_graph(ast, 'radiation_interface')
     parse_order = list(reversed(list(nx.topological_sort(dep_graph))))
