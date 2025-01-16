@@ -7,6 +7,7 @@ from copy import deepcopy as dpcp
 from dataclasses import dataclass
 from itertools import chain
 from pathlib import Path
+from random import randint
 from typing import List, Optional, Set, Dict, Tuple, Union
 
 import networkx as nx
@@ -37,6 +38,7 @@ from dace.frontend.fortran.ast_desugaring import ENTRY_POINT_OBJECT_CLASSES, NAM
     exploit_locally_constant_variables, assign_globally_unique_variable_names, assign_globally_unique_subprogram_names, \
     create_global_initializers, convert_data_statements_into_assignments
 from dace.frontend.fortran.ast_internal_classes import FNode, Main_Program_Node
+from dace.frontend.fortran.ast_transforms import NodeVisitor
 from dace.frontend.fortran.ast_utils import children_of_type
 from dace.frontend.fortran.intrinsics import IntrinsicSDFGTransformation, NeedsTypeInferenceException
 from dace.properties import CodeBlock
@@ -522,9 +524,9 @@ class AST_translator:
                     print(f"Changing the transient status to false of {arr_name} because it's a function argument")
                     arr.transient = False
 
-        # for i in sdfg.arrays:
-        #     if i in sdfg.symbols:
-        #         sdfg.arrays.pop(i)
+        for i in sdfg.arrays.keys():
+            if i in sdfg.symbols:
+                sdfg.arrays.pop(i)
 
         self.transient_mode = True
         self.translate(self.startpoint.execution_part.execution, sdfg, cfg)
@@ -905,9 +907,7 @@ class AST_translator:
         :param cfg: The control flow region to which the node should be translated
         """
 
-        if node.execution_part is None:
-            return
-        if len(node.execution_part.execution) == 0:
+        if not node.execution_part or not node.execution_part.execution:
             return
 
         print("TRANSLATE SUBROUTINE", node.name.name)
@@ -1986,7 +1986,7 @@ class AST_translator:
                     if i in write_names:
                         outs_in_new_sdfg.append(self.name_mapping[new_sdfg][i])
 
-                    array = self.globalsdfg.arrays[self.name_mapping[self.globalsdfg][i]]
+                    array_in_global = self.globalsdfg.arrays[self.name_mapping[self.globalsdfg][i]]
                     if isinstance(array_in_global, Scalar):
                         new_sdfg.add_scalar(self.name_mapping[new_sdfg][i], array_in_global.dtype, transient=False)
                     elif (hasattr(array_in_global, 'type') and array_in_global.type == "Array") or isinstance(
@@ -2210,7 +2210,7 @@ class AST_translator:
                     nested_sdfg = parent_sdfg
                     parent_sdfg = parent_sdfg.parent_sdfg
 
-        if self.multiple_sdfgs == False:
+        if not self.multiple_sdfgs:
 
             for i in assigns:
                 self.translate(i, new_sdfg, new_sdfg)
@@ -2226,12 +2226,16 @@ class AST_translator:
             from dace.transformation.pass_pipeline import FixedPointPipeline
             FixedPointPipeline([LiftStructViews()]).apply_pass(new_sdfg, {})
             new_sdfg.validate()
+            # sdfg.save('/Users/pmz/Downloads/bleh.sdfg')
             # tmp_sdfg=copy.deepcopy(new_sdfg)
             new_sdfg.simplify()
-            new_sdfg.validate()
-            sdfg.validate()
-
-        if self.multiple_sdfgs == True:
+            # new_sdfg.validate()
+            # sdfg.save('/Users/pmz/Downloads/bleh2.sdfg')
+            try:
+                sdfg.validate()
+            except:
+                breakpoint()
+        if self.multiple_sdfgs:
             internal_sdfg.path = self.sdfg_path + new_sdfg.name + ".sdfg"
             # new_sdfg.save(path.join(self.sdfg_path, new_sdfg.name + ".sdfg"))
 
@@ -2290,13 +2294,15 @@ class AST_translator:
                 input_names.append(mapped_name)
                 input_names_tasklet.append(i.name + "_" + str(count) + "_in")
 
-        substate = self._add_simple_state_to_cfg(
-            cfg, "_state_l" + str(node.line_number[0]) + "_c" + str(node.line_number[1]))
+        line_number = [0, 0]
+        substate = ast_utils.add_simple_state_to_sdfg(
+            self, sdfg, "_state_l" + str(line_number[0]) + "_c" + str(line_number[1]))
 
         output_names_changed = [o_t + "_out" for o_t in output_names]
 
-        tasklet = self._add_tasklet(substate, "_l" + str(node.line_number[0]) + "_c" + str(node.line_number[1]),
-                                    input_names_tasklet, output_names_changed, "text", node.line_number, self.file_name)
+        tasklet = ast_utils.add_tasklet(substate, "_l" + str(line_number[0]) + "_c" + str(line_number[1]),
+                                        input_names_tasklet, output_names_changed, "text", line_number,
+                                        self.file_name)
 
         for i, j in zip(input_names, input_names_tasklet):
             memlet_range = self.get_memlet_range(sdfg, input_vars, i, j)
@@ -2860,7 +2866,7 @@ class SDFGConfig:
         self.normalize_offsets = normalize_offsets
         self.multiple_sdfgs = multiple_sdfgs
 
-def run_ast_transformations(own_ast: ast_components.InternalFortranAst, program: FNode, cfg: SDFGConfig, normalize_offsets: bool = True):
+def run_ast_transformations(own_ast: ast_components.InternalFortranAst, program: FNode, cfg: SDFGConfig):
 
     functions_and_subroutines_builder = ast_transforms.FindFunctionAndSubroutines()
     functions_and_subroutines_builder.visit(program)
@@ -2931,16 +2937,36 @@ def run_ast_transformations(own_ast: ast_components.InternalFortranAst, program:
     array_dims_info = ast_transforms.ArrayDimensionSymbolsMapper()
     array_dims_info.visit(program)
     program = ast_transforms.ArrayDimensionConfigInjector(array_dims_info, cfg.config_injections).visit(program)
+    z = ast_transforms.FindDefinedNames()
+    z.visit(program)
+    # assert 'tmp_call_207' in z.names
 
     program = ast_transforms.ParDeclNonContigArrayExpander(program).visit(program)
 
     program = ast_transforms.ArrayToLoop(program).visit(program)
+    z = ast_transforms.FindDefinedNames()
+    z.visit(program)
+    # assert 'tmp_call_207' in z.names
     program = ast_transforms.ForDeclarer().visit(program)
-    program = ast_transforms.IndexExtractor(program, normalize_offsets).visit(program)
+    program = ast_transforms.TypeInference(program, assert_voids=False).visit(program)
+    class Vis(NodeVisitor):
+        def __init__(self):
+            self.drefs: List[ast_internal_classes.Data_Ref_Node] = []
+        def visit_Data_Ref_Node(self, node: ast_internal_classes.Data_Ref_Node):
+            assert node.type != 'VOID'
+            self.drefs.append(node)
+    vis = Vis()
+    vis.visit(program)
+    for dr in vis.drefs:
+        assert dr.type != 'VOID'
+    program = ast_transforms.IndexExtractor(program, cfg.normalize_offsets).visit(program)
     program = ast_transforms.optionalArgsExpander(program)
     #program = ast_transforms.ParDeclOffsetNormalizer(program).visit(program)
     program = ast_transforms.allocatableReplacer(program)
     program = ast_transforms.ParDeclOffsetNormalizer(program).visit(program)
+    z = ast_transforms.FindDefinedNames()
+    z.visit(program)
+    # assert 'tmp_call_207' in z.names
 
     structs_lister = ast_transforms.StructLister()
     structs_lister.visit(program)
@@ -2983,6 +3009,11 @@ def run_ast_transformations(own_ast: ast_components.InternalFortranAst, program:
     # TODO: `ArgumentPruner` does not cleanly remove arguments -> disable until fixed.
     # Check before rerunning CloudSC
     # ast_transforms.ArgumentPruner(functions_and_subroutines_builder.nodes).visit(program)
+    z = ast_transforms.FindDefinedNames()
+    z.visit(program)
+    # assert 'tmp_call_207' in z.names
+
+    program = ast_transforms.TypeInference(program, assert_voids=False).visit(program)
 
     return program
 
@@ -2992,7 +3023,7 @@ def create_sdfg_from_internal_ast(own_ast: ast_components.InternalFortranAst, pr
     # The actual structure listing is repeated later to resolve cycles.
     # Not sure if we can actually do it earlier.
 
-    program = run_ast_transformations(own_ast, program, cfg, True)
+    program = run_ast_transformations(own_ast, program, cfg)
 
     gmap = {}
     for ep, ep_spec in cfg.entry_points.items():
@@ -3304,14 +3335,22 @@ def create_sdfg_from_fortran_file_with_options(
         ast = make_practically_constant_global_vars_constants(ast)
         ast = const_eval_nodes(ast)
         ast = prune_branches(ast)
+        with open('/Users/pmz/Downloads/before_pruning.f90', 'w') as f:
+            f.write(ast.tofortran())
         ast = prune_unused_objects(ast, parse_cfg.entry_points)
+        with open('/Users/pmz/Downloads/after_pruning.f90', 'w') as f:
+            f.write(ast.tofortran())
 
         print("FParser Op: Fix arguments & prune...")
         # Another round of pruning after fixing the practically constant arguments, just in case.
         ast = make_practically_constant_arguments_constants(ast, parse_cfg.entry_points)
         ast = const_eval_nodes(ast)
         ast = prune_branches(ast)
+        with open('/Users/pmz/Downloads/before_pruning.f90', 'w') as f:
+            f.write(ast.tofortran())
         ast = prune_unused_objects(ast, parse_cfg.entry_points)
+        with open('/Users/pmz/Downloads/after_pruning.f90', 'w') as f:
+            f.write(ast.tofortran())
 
         print("FParser Op: Fix local vars & prune...")
         # Another round of pruning after fixing the locally constant variables, just in case.
@@ -3328,6 +3367,8 @@ def create_sdfg_from_fortran_file_with_options(
     else:
         ast = correct_for_function_calls(ast)
 
+    with open('/Users/pmz/Downloads/after_pruning.f90', 'w') as f:
+        f.write(ast.tofortran())
     dep_graph = compute_dep_graph(ast, 'radiation_interface')
     parse_order = list(reversed(list(nx.topological_sort(dep_graph))))
 
@@ -3404,7 +3445,7 @@ def create_sdfg_from_fortran_file_with_options(
     # program = ast_transforms.PropagateEnums().visit(program)
     # program = ast_transforms.Flatten_Classes(structs_lister.structs).visit(program)
     program.structures = ast_transforms.Structures(structs_lister.structs)
-    program = run_ast_transformations(partial_ast, program, sdfg_cfg, True)
+    program = run_ast_transformations(partial_ast, program, sdfg_cfg)
 
     
 
@@ -3583,11 +3624,20 @@ def create_sdfg_from_fortran_file_with_options(
     # arg_pruner = ast_transforms.ArgumentPruner(functions_and_subroutines_builder.nodes)
     # arg_pruner.visit(program)
 
+    class Vis(NodeVisitor):
+        def __init__(self):
+            self.drefs: List[ast_internal_classes.Data_Ref_Node] = []
+        def visit_Data_Ref_Node(self, node: ast_internal_classes.Data_Ref_Node):
+            self.drefs.append(node)
+    vis = Vis()
+    vis.visit(program)
+    for dr in vis.drefs:
+        assert dr.type != 'VOID'
+
     for j in program.subroutine_definitions:
 
         if subroutine_name is not None:
-            if not subroutine_name + "_decon" in j.name.name:
-                print("Skipping 1 ", j.name.name)
+            if not subroutine_name in j.name.name:
                 continue
 
         if j.execution_part is None:

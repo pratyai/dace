@@ -82,7 +82,7 @@ def add_memlet_write(substate: SDFGState, var_name: str, tasklet: Tasklet, sourc
     return dst
 
 
-def add_simple_state_to_sdfg(state: SDFGState, top_sdfg: SDFG, state_name: str):
+def add_simple_state_to_sdfg(state: 'AST_translator', top_sdfg: SDFG, state_name: str):
     if state.last_sdfg_states.get(top_sdfg) is not None:
         substate = top_sdfg.add_state(state_name)
     else:
@@ -91,7 +91,7 @@ def add_simple_state_to_sdfg(state: SDFGState, top_sdfg: SDFG, state_name: str):
     return substate
 
 
-def finish_add_state_to_sdfg(state: SDFGState, top_sdfg: SDFG, substate: SDFGState):
+def finish_add_state_to_sdfg(state: 'AST_translator', top_sdfg: SDFG, substate: SDFGState):
     if state.last_sdfg_states.get(top_sdfg) is not None:
         top_sdfg.add_edge(state.last_sdfg_states[top_sdfg], substate, InterstateEdge())
     state.last_sdfg_states[top_sdfg] = substate

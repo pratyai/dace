@@ -1,8 +1,10 @@
 from typing import Dict
 
 import numpy as np
+from dace.transformation.passes import DeadStateElimination
 
 import dace
+from dace import SDFG
 from dace.frontend.fortran.ast_desugaring import ConstTypeInjection
 from dace.frontend.fortran.fortran_parser import ParseConfig, create_internal_ast, SDFGConfig, \
     create_sdfg_from_internal_ast, create_singular_sdfg_from_string
@@ -15,8 +17,10 @@ def construct_internal_ast(sources: Dict[str, str]):
     iast, prog = create_internal_ast(cfg)
     return iast, prog
 
-@pytest.mark.skip("This test is segfaulting deterministically in pytest, works fine in debug")
+# @pytest.mark.skip("This test is segfaulting deterministically in pytest, works fine in debug")
 def test_minimal():
+    g = SDFG.from_file('/Users/pmz/Downloads/dead_state_bad.sdfg')
+    DeadStateElimination().apply_pass(g, None)
     sources, main = SourceCodeBuilder().add_file("""
 module lib
   implicit none
@@ -39,19 +43,24 @@ subroutine main(cfg, c)
   type(config), intent(in) :: cfg
   real, intent(out) :: c(2)
   c(1) = 1
-  c(1) = size(cfg%a, 1) + c(1) * size(cfg%b, 1)
+  if (allocated(cfg%a) .and. allocated(cfg%b)) then
+    c(1) = size(cfg%a, 1) + c(1) * size(cfg%b, 1)
+  endif
 end subroutine main
 """).check_with_gfortran().get()
     g = create_singular_sdfg_from_string(
         sources, entry_point='main',  normalize_offsets=False,
         config_injections=[
+            ConstTypeInjection(scope_spec=None, type_spec=('lib', 'config'), component_spec=('a_a',), value='True'),
             ConstTypeInjection(scope_spec=None, type_spec=('lib', 'config'), component_spec=('a_d0_s',), value='3'),
             ConstTypeInjection(scope_spec=None, type_spec=('lib', 'config'), component_spec=('a_d1_s',), value='4'),
+            ConstTypeInjection(scope_spec=None, type_spec=('lib', 'config'), component_spec=('b_a',), value='True'),
             ConstTypeInjection(scope_spec=None, type_spec=('lib', 'config'), component_spec=('b_d0_s',), value='5'),
             ConstTypeInjection(scope_spec=None, type_spec=('lib', 'config'), component_spec=('b_d1_s',), value='6'),
             ConstTypeInjection(scope_spec=None, type_spec=('lib', 'config'), component_spec=('b_d2_s',), value='7'),
         ])
-    g.simplify(verbose=True)
+    # g.simplify(verbose=True)
+    g.save('/Users/pmz/Downloads/bleh.sdfg')
     g.compile()
 
     # As per the injection, the result should be 3 (first dimension size of a) + 5 (first dimension size of b)

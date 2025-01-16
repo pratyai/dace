@@ -1062,6 +1062,12 @@ def unparse_tasklet(sdfg, cfg, state_id, dfg, node, function_stream, callsite_st
             defined_symbols.update({connector: conntype})
 
     callsite_stream.write("// Tasklet code (%s)\n" % node.label, cfg, state_id, node)
+    # if node.label == 'T_l0_c0':
+    #     stmt = copy.deepcopy(body[0])
+    #     if isinstance(stmt, ast.Assign):
+    #         targets = [t.id for t in stmt.targets if isinstance(t, ast.Name)]
+    #         if 'tmp_index_30_out' in targets:
+    #             breakpoint()
     for stmt in body:
         stmt = copy.deepcopy(stmt)
         rk = StructInitializer(sdfg).visit(stmt)

@@ -1137,7 +1137,7 @@ class SDFG(ControlFlowRegion):
         the execution order of the SDFG.
         Each node in the tree can either represent a single statement (symbol assignment, tasklet, copy, library node,
         etc.) or a ``ScheduleTreeScope`` block (map, for-loop, pipeline, etc.) that contains other nodes.
-    
+
         It can be used to generate code from an SDFG, or to perform schedule transformations on the SDFG. For example,
         erasing an empty if branch, or merging two consecutive for-loops.
 
@@ -2600,7 +2600,7 @@ class SDFG(ControlFlowRegion):
         """
         Runs a basic sequence of transformations to optimize a given SDFG to decent
         performance. In particular, performs the following:
-            
+
             * Simplify
             * Auto-parallelization (loop-to-map)
             * Greedy application of SubgraphFusion

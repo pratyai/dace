@@ -9,7 +9,7 @@ from numpy import array_repr
 
 from dace.frontend.fortran import ast_internal_classes
 from dace.frontend.fortran.ast_transforms import NodeVisitor, NodeTransformer, ParentScopeAssigner, \
-    ScopeVarsDeclarations, TypeInference, par_Decl_Range_Finder, mywalk
+    ScopeVarsDeclarations, par_Decl_Range_Finder, mywalk
 from dace.frontend.fortran.ast_utils import fortrantypes2dacetypes
 from dace.libraries.blas.nodes.dot import dot_libnode
 from dace.libraries.blas.nodes.gemm import gemm_libnode
@@ -20,12 +20,13 @@ from dace.transformation import transformation as xf
 
 FASTNode = Any
 
+
 class NeedsTypeInferenceException(BaseException):
 
     def __init__(self, func_name, line_number):
-
         self.line_number = line_number
         self.func_name = func_name
+
 
 class IntrinsicTransformation:
 
@@ -75,6 +76,7 @@ class VariableProcessor:
         elif name in self.ast.module_declarations:
             return self.ast.module_declarations[name], variable
         else:
+            breakpoint()
             raise RuntimeError(f"Couldn't find the declaration of variable {name} in function {parent.name.name}!")
 
     def get_var_declaration(
@@ -154,8 +156,8 @@ class DirectReplacement(IntrinsicTransformation):
                 # we handle extracted call variables this way
                 # but we can also have different shapes, e.g., `maxval(something) > something_else`
                 # hence the check
-                if isinstance(var, (ast_internal_classes.Name_Node, ast_internal_classes.Array_Subscript_Node, ast_internal_classes.Data_Ref_Node)):
-
+                if isinstance(var, (ast_internal_classes.Name_Node, ast_internal_classes.Array_Subscript_Node,
+                                    ast_internal_classes.Data_Ref_Node)):
                     var_decl = self.get_var_declaration(var.parent, var)
                     var_decl.type = input_type
 
@@ -223,8 +225,8 @@ class DirectReplacement(IntrinsicTransformation):
 
         rank_value = int(rank.value)
 
-        is_assumed = isinstance(var_decl.offsets[rank_value - 1], ast_internal_classes.Name_Node) and var_decl.offsets[
-            rank_value - 1].name.startswith("__f2dace_")
+        is_assumed = (isinstance(var_decl.offsets[rank_value - 1], ast_internal_classes.Name_Node)
+                      and var_decl.offsets[rank_value - 1].name.startswith("__f2dace_"))
 
         if func == 'lbound':
 
@@ -338,14 +340,25 @@ class DirectReplacement(IntrinsicTransformation):
         return (ast_internal_classes.Name_Node(name=test_var_name), "LOGICAL")
 
     def replace_allocated(transformer: IntrinsicNodeTransformer, call: ast_internal_classes.Call_Expr_Node, line):
+        arg, = call.args
+        var_decl = transformer.get_var_declaration(call.parent, arg)
+        if isinstance(arg, ast_internal_classes.Data_Ref_Node):
+            root_decl = transformer.get_var_declaration(call.parent, arg.parent_ref)
+            root_type = transformer.ast.structures.structures[root_decl.type]
+            comp_prefix = f"__f2dace_SALLOCATED_{var_decl.name}_s_"
+            test_var_node = None
+            for k in root_type.vars.keys():
+                if k.startswith(comp_prefix):
+                    test_var_node = ast_internal_classes.Data_Ref_Node(arg.parent_ref,
+                                                                       ast_internal_classes.Name_Node(name=k))
+                    break
+            if not test_var_node:
+                breakpoint()
+            assert test_var_node
+        else:
+            test_var_node = ast_internal_classes.Name_Node(name=f"__f2dace_ALLOCATED_{var_decl.name}")
 
-        assert len(call.args) == 1
-        assert isinstance(call.args[0], ast_internal_classes.Name_Node)
-
-        var_name = call.args[0].name
-        test_var_name = f'__f2dace_ALLOCATED_{var_name}'
-
-        return (ast_internal_classes.Name_Node(name=test_var_name), "LOGICAL")
+        return test_var_node, 'LOGICAL'
 
     def replacement_epsilon(args: ast_internal_classes.Arg_List_Node, line, symbols: list):
 
@@ -643,7 +656,6 @@ class LoopBasedReplacementTransformation(IntrinsicNodeTransformer):
             but arr2 must be arr2[loop_idx + 2]
         """
         for i in range(len(array.indices)):
-
             idx_var = array.indices[i]
             start_loop = loop_ranges_main[i][0]
             end_loop = loop_ranges_array[i][0]
@@ -661,8 +673,8 @@ class LoopBasedReplacementTransformation(IntrinsicNodeTransformer):
                 line_number=node.line_number
             )
             array.indices[i] = new_index
-            #difference = int(end_loop.value) - int(start_loop.value)
-            #if difference != 0:
+            # difference = int(end_loop.value) - int(start_loop.value)
+            # if difference != 0:
             #    new_index = ast_internal_classes.BinOp_Node(
             #        lval=idx_var,
             #        op="+",
@@ -1032,10 +1044,7 @@ class All(LoopBasedReplacement):
             )
 
         def _loop_condition(self):
-            return ast_internal_classes.UnOp_Node(
-                op="not",
-                lval=self.cond
-            )
+            return ast_internal_classes.UnOp_Node(op="not", lval=self.cond)
 
         @staticmethod
         def func_name() -> str:
@@ -1272,11 +1281,11 @@ class Merge(LoopBasedReplacement):
                     len_pardecls_first_array += len(pardecls)
                 for ind in self.second_array.indices:
                     pardecls = [i for i in mywalk(ind) if isinstance(i, ast_internal_classes.ParDecl_Node)]
-                    len_pardecls_second_array += len(pardecls)    
+                    len_pardecls_second_array += len(pardecls)
                 assert len_pardecls_first_array == len_pardecls_second_array
                 if len_pardecls_first_array == 0:
                     self.uses_scalars = True
-                else:    
+                else:
                     self.uses_scalars = False
 
             # Last argument is either an array or a binary op
@@ -1310,7 +1319,6 @@ class Merge(LoopBasedReplacement):
             if self.uses_scalars:
                 self.destination_array = node.lval
                 return
-
 
             # The first main argument is an array -> this dictates loop boundaries
             # Other arrays, regardless if they appear as the second array or mask, need to have the same loop boundary.
@@ -1695,7 +1703,7 @@ class MathFunctions(IntrinsicTransformation):
                 raise NotImplementedError()
 
         def visit_BinOp_Node(self, binop_node: ast_internal_classes.BinOp_Node):
-            
+
             if not isinstance(binop_node.rval, ast_internal_classes.Call_Expr_Node):
                 return binop_node
 
@@ -1715,12 +1723,11 @@ class MathFunctions(IntrinsicTransformation):
 
             input_type = self.func_type(node)
             if input_type == 'VOID':
-                #assert input_type != 'VOID', f"Unexpected void input at line number: {node.line_number}"
+                # assert input_type != 'VOID', f"Unexpected void input at line number: {node.line_number}"
                 raise NeedsTypeInferenceException(func_name, node.line_number)
 
             replacement_rule = MathFunctions.INTRINSIC_TO_DACE[func_name]
             if isinstance(replacement_rule, dict):
-
                 replacement_rule = replacement_rule[input_type]
             if replacement_rule.return_type == "FIRST_ARG":
                 return_type = input_type
@@ -1901,7 +1908,7 @@ class FortranIntrinsics:
             "DATE_AND_TIME": "__dace_date_and_time",
             "RESHAPE": "__dace_reshape",
         }
-       
+
         if func_name in replacements:
             return ast_internal_classes.Name_Node(name=replacements[func_name])
         elif DirectReplacement.replacable_name(func_name):
@@ -1942,7 +1949,8 @@ class FortranIntrinsics:
         if name.name in func_types:
             # FIXME: this will be progressively removed
             call_type = func_types[name.name]
-            return ast_internal_classes.Call_Expr_Node(name=name, type=call_type, args=args.args, line_number=line,subroutine=False)
+            return ast_internal_classes.Call_Expr_Node(name=name, type=call_type, args=args.args, line_number=line,
+                                                       subroutine=False)
         elif DirectReplacement.replacable(name.name):
             return DirectReplacement.replace(name.name, args, line, symbols)
         else:

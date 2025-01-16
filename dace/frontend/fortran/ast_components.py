@@ -639,16 +639,6 @@ class InternalFortranAst:
         children = self.type_declaration_stmt(node)
         return ast_internal_classes.Data_Component_Def_Stmt_Node(vars=children)
 
-    def component_decl_list(self, node: FASTNode):
-        children = self.create_children(node)
-        component_decls = [i for i in children if isinstance(i, ast_internal_classes.Component_Decl_Node)]
-        return ast_internal_classes.Component_Decl_List_Node(component_decls=component_decls)
-
-    def component_decl(self, node: FASTNode):
-        children = self.create_children(node)
-        name = get_child(children, ast_internal_classes.Name_Node)
-        return ast_internal_classes.Component_Decl_Node(name=name)
-
     def write_stmt(self, node: FASTNode):
         # children=[]
         # if node.children[0] is not None:
@@ -1275,7 +1265,24 @@ class InternalFortranAst:
                     if attr_size is None:
                         raise RuntimeError("Couldn't parse the dimension attribute specification!")
 
-        vardecls = [*assumed_vardecls]
+        allocated_vardecls = []
+        if alloc:
+            for var in names:
+                varname = var.children[0].string
+                allocname = f'__f2dace_ALLOCATED_{varname}_s_{self.type_arbitrary_array_variable_count}'
+                self.type_arbitrary_array_variable_count += 1
+                var = ast_internal_classes.Symbol_Decl_Node(name=allocname,
+                                                            type='LOGICAL',
+                                                            alloc=False,
+                                                            sizes=None,
+                                                            offsets=None,
+                                                            init=None,
+                                                            kind=None,
+                                                            line_number=node.item.span)
+                allocated_vardecls.append(var)
+                self.symbols[allocname] = None
+
+        vardecls = [*assumed_vardecls, *allocated_vardecls]
 
         for idx, var in enumerate(names):
             # print(self.name_list)
@@ -1618,7 +1625,6 @@ class InternalFortranAst:
             if else_mode:
                 body_else.append(i)
             else:
-
                 body.append(i)
         currentIf.body = ast_internal_classes.Execution_Part_Node(execution=body)
         currentIf.body_else = ast_internal_classes.Execution_Part_Node(execution=body_else)

@@ -146,6 +146,7 @@ class NodeVisitor(object):
 
     def visit(self, node: ast_internal_classes.FNode):
         method = 'visit_' + node.__class__.__name__
+        print('GO:', method)
         visitor = getattr(self, method, self.generic_visit)
         return visitor(node)
 
@@ -165,7 +166,7 @@ class NodeTransformer(NodeVisitor):
     A base node visitor that walks the abstract syntax tree and allows
     modification of nodes.
     The `NodeTransformer` will walk the AST and use the return value of the
-    visitor methods to replace old nodes. 
+    visitor methods to replace old nodes.
     """
 
     def as_list(self, x):
@@ -376,7 +377,7 @@ class FindInputs(NodeVisitor):
                     self.visit(i)
             elif isinstance(node.lval, ast_internal_classes.Data_Ref_Node):
                 # if isinstance(node.lval.parent_ref, ast_internal_classes.Name_Node):
-                #    self.nodes.append(node.lval.parent_ref)    
+                #    self.nodes.append(node.lval.parent_ref)
                 if isinstance(node.lval.parent_ref, ast_internal_classes.Array_Subscript_Node):
                     # self.nodes.append(node.lval.parent_ref.name)
                     for i in node.lval.parent_ref.indices:
@@ -486,7 +487,7 @@ class StructLister(NodeVisitor):
     """
     Fortran does not differentiate between arrays and functions.
     We need to go over and convert all function calls to arrays.
-    So, we create a closure of all math and defined functions and 
+    So, we create a closure of all math and defined functions and
     create array expressions for the others.
     """
 
@@ -661,7 +662,7 @@ class StructConstructorToFunctionCall(NodeTransformer):
     """
     Fortran does not differentiate between structure constructors and functions without arguments.
     We need to go over and convert all structure constructors that are in fact functions and transform them.
-    So, we create a closure of all math and defined functions and 
+    So, we create a closure of all math and defined functions and
     transform if necessary.
     """
 
@@ -705,7 +706,7 @@ class CallToArray(NodeTransformer):
     """
     Fortran does not differentiate between arrays and functions.
     We need to go over and convert all function calls to arrays.
-    So, we create a closure of all math and defined functions and 
+    So, we create a closure of all math and defined functions and
     create array expressions for the others.
     """
 
@@ -852,45 +853,32 @@ class ArgumentExtractor(NodeTransformer):
         for child in node.execution:
             lister = ArgumentExtractorNodeLister()
             lister.visit(child)
-            res = lister.nodes
+            res = lister.nodes or []
             for i in res:
                 if i == child:
                     res.pop(res.index(i))
 
-            if res is not None:
+            # Variables are counted from 0...end, starting from main node, to all calls nested
+            # in main node arguments.
+            # However, we need to define nested ones first.
+            # We go in reverse order, counting from end-1 to 0.
+            temp = self.count + len(res) - 1
+            for i in reversed(range(0, len(res))):
+                if isinstance(res[i], ast_internal_classes.Data_Ref_Node):
+                    struct_def, cur_var, _ = self.program.structures.find_definition(self.scope_vars, res[i])
+                    var_type = cur_var.type
+                else:
+                    var_type = res[i].type
 
-                # Variables are counted from 0...end, starting from main node, to all calls nested
-                # in main node arguments.
-                # However, we need to define nested ones first.
-                # We go in reverse order, counting from end-1 to 0.
-                temp = self.count + len(res) - 1
-                for i in reversed(range(0, len(res))):
-
-                    if isinstance(res[i], ast_internal_classes.Data_Ref_Node):
-                        struct_def, cur_var, _ = self.program.structures.find_definition(self.scope_vars, res[i])
-
-                        var_type = cur_var.type
-                    else:
-                        var_type = res[i].type
-
-                    node.parent.specification_part.specifications.append(
-                        ast_internal_classes.Decl_Stmt_Node(vardecl=[
-                            ast_internal_classes.Var_Decl_Node(
-                                name="tmp_arg_" + str(temp),
-                                type='VOID',
-                                sizes=None,
-                                init=None,
-                            )
-                        ])
-                    )
-                    newbody.append(
-                        ast_internal_classes.BinOp_Node(op="=",
-                                                        lval=ast_internal_classes.Name_Node(name="tmp_arg_" +
-                                                                                                 str(temp),
-                                                                                            type=res[i].type),
-                                                        rval=res[i],
-                                                        line_number=child.line_number, parent=child.parent))
-                    temp = temp - 1
+                node.parent.specification_part.specifications.append(
+                    ast_internal_classes.Decl_Stmt_Node(
+                        vardecl=[ast_internal_classes.Var_Decl_Node(
+                            name="tmp_arg_" + str(temp), type=var_type, sizes=None, init=None)]))
+                newbody.append(
+                    ast_internal_classes.BinOp_Node(
+                        op="=", lval=ast_internal_classes.Name_Node(name="tmp_arg_" + str(temp), type=res[i].type),
+                        rval=res[i], line_number=child.line_number, parent=child.parent))
+                temp = temp - 1
 
             newbody.append(self.visit(child))
 
@@ -962,8 +950,9 @@ class ArrayDimensionSymbolsMapper(NodeTransformer):
         return self.generic_visit(node)
 
 
-CONFIG_INJECTOR_SIZE_PATTERN = re.compile(r"(?P<comp>[a-zA-Z0-9_]+)_d(?P<num>[0-9]*)")
-CONFIG_INJECTOR_OFFSET_PATTERN = re.compile(r"(?P<comp>[a-zA-Z0-9_]+)_o(?P<num>[0-9]*)")
+CONFIG_INJECTOR_SIZE_PATTERN = re.compile(r"(?P<comp>[a-zA-Z0-9_]+)_d(?P<num>[0-9]*)_s")
+CONFIG_INJECTOR_OFFSET_PATTERN = re.compile(r"(?P<comp>[a-zA-Z0-9_]+)_o(?P<num>[0-9]*)_s")
+CONFIG_INJECTOR_ALLOCATED_PATTERN = re.compile(r"(?P<comp>[a-zA-Z0-9_]+)_a")
 
 
 class ArrayDimensionConfigInjector(NodeTransformer):
@@ -976,21 +965,26 @@ class ArrayDimensionConfigInjector(NodeTransformer):
             typ = c.type_spec[-1]  # We assume globally unique typenames for these configuration objects.
             assert len(c.component_spec) == 1  # Cannot support otherwise.
             comp = c.component_spec[-1]
-            if not comp.endswith('_s'):
+            if not comp.endswith('_s') and not comp.endswith('_a'):
                 continue
-            comp = comp.removesuffix('_s')
             size_match = CONFIG_INJECTOR_SIZE_PATTERN.match(comp)
             offset_match = CONFIG_INJECTOR_OFFSET_PATTERN.match(comp)
+            alloc_match = CONFIG_INJECTOR_ALLOCATED_PATTERN.match(comp)
             if size_match:
-                marker = 'SA'
                 comp, num = size_match.groups()
+                prefix = f"__f2dace_SA_{comp}_d_{num}_s_"
             elif offset_match:
-                marker = 'SOA'
                 comp, num = offset_match.groups()
+                prefix = f"__f2dace_SOA_{comp}_d_{num}_s_"
+            elif alloc_match:
+                comp, = alloc_match.groups()
+                prefix = f"__f2dace_SALLOCATED_{comp}_s_"
             else:
                 continue
             for k, v in array_dims_info.array_dims_symbols.items():
-                if v[0] == typ and v[1].startswith(f"__f2dace_{marker}_{comp}_d_{num}_s_"):
+                if v[0] == typ and v[1].startswith(prefix):
+                    if alloc_match:
+                        print(f"ALLOC: {c} => {k} : {v} = {c.value}")
                     assert k not in self.cfg
                     self.cfg[k] = c.value
 
@@ -1014,7 +1008,11 @@ class ArrayDimensionConfigInjector(NodeTransformer):
 
     def visit_Name_Node(self, node: ast_internal_classes.Name_Node):
         if self.in_exec_depth > 0 and node.name in self.cfg:
-            return ast_internal_classes.Int_Literal_Node(self.cfg[node.name])
+            val = self.cfg[node.name]
+            if val in {'true', 'false'}:
+                return ast_internal_classes.Bool_Literal_Node(val)
+            else:
+                return ast_internal_classes.Int_Literal_Node(val)
         return node
 
 
@@ -1134,25 +1132,15 @@ class CallExtractor(NodeTransformer):
         ParentScopeAssigner().visit(ast)
 
     def visit_Call_Expr_Node(self, node: ast_internal_classes.Call_Expr_Node):
-
         from dace.frontend.fortran.intrinsics import FortranIntrinsics
         if node.name.name in ["malloc", "pow", "cbrt", "__dace_epsilon",
                               *FortranIntrinsics.call_extraction_exemptions()]:
             return self.generic_visit(node)
-        if hasattr(node, "subroutine"):
-            if node.subroutine is True:
-                return self.generic_visit(node)
-        if not hasattr(self, "count"):
-            self.count = 0
-        else:
-            self.count = self.count + 1
-        tmp = self.count
-
-        # for i, arg in enumerate(node.args):
-        #    # Ensure we allow to extract function calls from arguments
-        #    node.args[i] = self.visit(arg)
-
-        return ast_internal_classes.Name_Node(name="tmp_call_" + str(tmp - 1))
+        if node.subroutine is True:
+            return self.generic_visit(node)
+        tmp_name = f"tmp_call_{self.count}"
+        self.count = self.count + 1
+        return ast_internal_classes.Name_Node(name=tmp_name)
 
     # def visit_Specification_Part_Node(self, node: ast_internal_classes.Specification_Part_Node):
     #     newspec = []
@@ -1198,7 +1186,6 @@ class CallExtractor(NodeTransformer):
     #                                                         interface_blocks=node.interface_blocks)
 
     def visit_Execution_Part_Node(self, node: ast_internal_classes.Execution_Part_Node):
-
         oldbody = node.execution
         changes_made = True
         while changes_made:
@@ -1433,15 +1420,14 @@ class IndexExtractor(NodeTransformer):
     - ScopeVarsDeclarations to aggregate all variable declarations for each function.
     """
 
-    def __init__(self, ast: ast_internal_classes.FNode, normalize_offsets: bool = False, count=0):
+    def __init__(self, ast: ast_internal_classes.Program_Node, normalize_offsets: bool = True, count=0):
 
         self.count = count
         self.normalize_offsets = normalize_offsets
-        self.program = ast
         self.replacements = {}
 
+        ParentScopeAssigner().visit(ast)
         if normalize_offsets:
-            ParentScopeAssigner().visit(ast)
             self.scope_vars = ScopeVarsDeclarations(ast)
             self.scope_vars.visit(ast)
             self.structures = ast.structures
@@ -1450,34 +1436,22 @@ class IndexExtractor(NodeTransformer):
         from dace.frontend.fortran.intrinsics import FortranIntrinsics
         if node.name.name in ["pow", "atan2", "tanh", *FortranIntrinsics.retained_function_names()]:
             return self.generic_visit(node)
-        else:
-
-            new_args = []
-            for arg in node.args:
-                new_args.append(self.visit(arg))
-            node.args = new_args
-            return node
+        node.args = [self.visit(arg) for arg in node.args]
+        return node
 
     def visit_Array_Subscript_Node(self, node: ast_internal_classes.Array_Subscript_Node):
-        new_indices = []
-
-        for i in node.indices:
-            new_indices.append(self.visit(i))
-
-        tmp = self.count
+        new_indices = [self.visit(i) for i in node.indices]
         newer_indices = []
         for i in new_indices:
             if isinstance(i, ast_internal_classes.ParDecl_Node):
                 newer_indices.append(i)
             else:
-
-                newer_indices.append(ast_internal_classes.Name_Node(name="tmp_index_" + str(tmp)))
-                self.replacements["tmp_index_" + str(tmp)] = (i, node.name.name)
-                tmp = tmp + 1
-        self.count = tmp
-
-        return ast_internal_classes.Array_Subscript_Node(name=node.name, type=node.type, indices=newer_indices,
-                                                         line_number=node.line_number)
+                tmp_name = f"tmp_index_{self.count}"
+                self.count = self.count + 1
+                newer_indices.append(ast_internal_classes.Name_Node(name=tmp_name))
+                self.replacements[tmp_name] = (i, node.name.name)
+        return ast_internal_classes.Array_Subscript_Node(
+            name=node.name, type=node.type, indices=newer_indices, line_number=node.line_number)
 
     def visit_Execution_Part_Node(self, node: ast_internal_classes.Execution_Part_Node):
         newbody = []
@@ -1485,77 +1459,84 @@ class IndexExtractor(NodeTransformer):
         for child in node.execution:
             lister = IndexExtractorNodeLister()
             lister.visit(child)
-            res = lister.nodes
+            res = lister.nodes or []
             temp = self.count
 
+            class Vis(NodeVisitor):
+                def visit_Data_Ref_Node(self, node: ast_internal_classes.Data_Ref_Node):
+                    assert node.type != 'VOID'
+            for k, _ in res:
+                print('MEGA', k, k.parent)
+                Vis().visit(k.parent)
+                try:
+                    Vis().visit(k)
+                except:
+                    breakpoint()
+
             tmp_child = self.visit(child)
-            if res is not None:
-                for j, parent_node in res:
-                    for idx, i in enumerate(j.indices):
-
-                        if isinstance(i, ast_internal_classes.ParDecl_Node):
-                            continue
+            for j, parent_node in res:
+                for idx, i in enumerate(j.indices):
+                    if isinstance(i, ast_internal_classes.Name_Node):
+                        ityp = self.scope_vars.get_var(i.parent, i.name).type
+                    else:
+                        ityp = i.type
+                    if ityp == 'VOID':
+                        breakpoint()
+                    assert ityp != 'VOID'
+                    if isinstance(i, ast_internal_classes.ParDecl_Node):
+                        continue
+                    tmp_name = "tmp_index_" + str(temp)
+                    temp = temp + 1
+                    newbody.append(
+                        ast_internal_classes.Decl_Stmt_Node(vardecl=[
+                            ast_internal_classes.Var_Decl_Node(name=tmp_name,
+                                                               type="INTEGER",
+                                                               sizes=None,
+                                                               init=None,
+                                                               line_number=child.line_number)
+                        ],
+                            line_number=child.line_number))
+                    if self.normalize_offsets:
+                        # Find the offset of a variable to which we are assigning
+                        if isinstance(j, ast_internal_classes.Name_Node):
+                            variable = self.scope_vars.get_var(child.parent, j.name)
+                        elif parent_node is not None:
+                            struct, variable, _ = self.structures.find_definition(self.scope_vars, parent_node, j.name)
                         else:
-                            tmp_name = "tmp_index_" + str(temp)
-                            temp = temp + 1
-                            newbody.append(
-                                ast_internal_classes.Decl_Stmt_Node(vardecl=[
-                                    ast_internal_classes.Var_Decl_Node(name=tmp_name,
-                                                                       type="INTEGER",
-                                                                       sizes=None,
-                                                                       init=None,
-                                                                       line_number=child.line_number)
-                                ],
-                                    line_number=child.line_number))
-                            if self.normalize_offsets:
+                            variable = self.scope_vars.get_var(child.parent, j.name.name)
 
-                                # Find the offset of a variable to which we are assigning
-                                var_name = ""
-                                if isinstance(j, ast_internal_classes.Name_Node):
-                                    var_name = j.name
-                                    variable = self.scope_vars.get_var(child.parent, var_name)
-                                elif parent_node is not None:
-                                    struct, variable, _ = self.structures.find_definition(
-                                        self.scope_vars, parent_node, j.name
-                                    )
-                                    var_name = j.name.name
-                                else:
-                                    var_name = j.name.name
-                                    variable = self.scope_vars.get_var(child.parent, var_name)
+                        offset = variable.offsets[idx]
 
-                                offset = variable.offsets[idx]
+                        # it can be a symbol - Name_Node - or a value
 
-                                # it can be a symbol - Name_Node - or a value
-
-                                if not isinstance(offset,
-                                                  (ast_internal_classes.Name_Node, ast_internal_classes.BinOp_Node)):
-                                    # check if offset is a number
-                                    try:
-                                        offset = int(offset)
-                                    except:
-                                        raise ValueError(f"Offset {offset} is not a number")
-                                    offset = ast_internal_classes.Int_Literal_Node(value=str(offset))
-                                newbody.append(
-                                    ast_internal_classes.BinOp_Node(
-                                        op="=",
-                                        lval=ast_internal_classes.Name_Node(name=tmp_name),
-                                        rval=ast_internal_classes.BinOp_Node(
-                                            op="-",
-                                            lval=self.replacements[tmp_name][0],
-                                            rval=offset,
-                                            line_number=child.line_number, parent=child.parent),
-                                        line_number=child.line_number))
-                            else:
-                                newbody.append(
-                                    ast_internal_classes.BinOp_Node(
-                                        op="=",
-                                        lval=ast_internal_classes.Name_Node(name=tmp_name),
-                                        rval=ast_internal_classes.BinOp_Node(
-                                            op="-",
-                                            lval=self.replacements[tmp_name][0],
-                                            rval=ast_internal_classes.Int_Literal_Node(value="1"),
-                                            line_number=child.line_number, parent=child.parent),
-                                        line_number=child.line_number, parent=child.parent))
+                        if not isinstance(offset, (ast_internal_classes.Name_Node, ast_internal_classes.BinOp_Node)):
+                            # check if offset is a number
+                            try:
+                                offset = int(offset)
+                            except:
+                                raise ValueError(f"Offset {offset} is not a number")
+                            offset = ast_internal_classes.Int_Literal_Node(value=str(offset))
+                        newbody.append(
+                            ast_internal_classes.BinOp_Node(
+                                op="=",
+                                lval=ast_internal_classes.Name_Node(name=tmp_name),
+                                rval=ast_internal_classes.BinOp_Node(
+                                    op="-",
+                                    lval=self.replacements[tmp_name][0],
+                                    rval=offset,
+                                    line_number=child.line_number, parent=child.parent),
+                                line_number=child.line_number))
+                    else:
+                        newbody.append(
+                            ast_internal_classes.BinOp_Node(
+                                op="=",
+                                lval=ast_internal_classes.Name_Node(name=tmp_name),
+                                rval=ast_internal_classes.BinOp_Node(
+                                    op="-",
+                                    lval=self.replacements[tmp_name][0],
+                                    rval=ast_internal_classes.Int_Literal_Node(value="1"),
+                                    line_number=child.line_number, parent=child.parent),
+                                line_number=child.line_number, parent=child.parent))
             newbody.append(tmp_child)
         return ast_internal_classes.Execution_Part_Node(execution=newbody)
 
@@ -2132,7 +2113,7 @@ def par_Decl_Range_Finder(node: ast_internal_classes.Array_Subscript_Node,
     :param rangepos: The positions of the ranges
     :param count: The current count of the loop
     :param newbody: The new basic block that will contain the loop
-    :param main_iterator_ranges: When parsing right-hand side of equation, use access to main loop range 
+    :param main_iterator_ranges: When parsing right-hand side of equation, use access to main loop range
     :return: Ranges, rangepos, newbody
     """
 
@@ -2666,6 +2647,8 @@ class TypeInference(NodeTransformer):
 
         new_sizes = []
         for i, idx in enumerate(node.indices):
+            self.visit(idx)
+            assert idx.type != 'VOID'
 
             if isinstance(idx, ast_internal_classes.ParDecl_Node):
 
@@ -2793,8 +2776,6 @@ class TypeInference(NodeTransformer):
         return node
 
     def visit_Data_Ref_Node(self, node: ast_internal_classes.Data_Ref_Node):
-
-
         if node.type != 'VOID':
             return node
 
@@ -2812,6 +2793,8 @@ class TypeInference(NodeTransformer):
             variable.sizes = []
             node.offsets = []
             variable.offsets = []
+
+        assert node.type != 'VOID'
 
         return node
 
@@ -2869,36 +2852,18 @@ class TypeInference(NodeTransformer):
 
     def _get_type(self, node):
 
-        if isinstance(node, ast_internal_classes.Int_Literal_Node):
-            return 'INTEGER'
-        elif isinstance(node, ast_internal_classes.Real_Literal_Node):
-            return 'REAL'
-        elif isinstance(node, ast_internal_classes.Bool_Literal_Node):
-            return 'LOGICAL'
-        else:
-            return node.type
+        return node.type
 
     def _get_offsets(self, node):
 
-        if isinstance(node, ast_internal_classes.Int_Literal_Node):
-            return [1]
-        elif isinstance(node, ast_internal_classes.Real_Literal_Node):
-            return [1]
-        elif isinstance(node, ast_internal_classes.Bool_Literal_Node):
-            return [1]
-        else:
+        if hasattr(node, 'offsets'):
             return node.offsets
+        return []
 
     def _get_sizes(self, node):
-
-        if isinstance(node, ast_internal_classes.Int_Literal_Node):
-            return []
-        elif isinstance(node, ast_internal_classes.Real_Literal_Node):
-            return []
-        elif isinstance(node, ast_internal_classes.Bool_Literal_Node):
-            return []
-        else:
+        if hasattr(node, 'sizes'):
             return node.sizes
+        return []
 
 class ReplaceInterfaceBlocks(NodeTransformer):
     """
@@ -3722,7 +3687,6 @@ class ArrayLoopExpander(NodeTransformer):
             lister = self.lister_type()(self.scope_vars, self.ast.structures)
             lister.visit(child_)
             res = lister.nodes
-            res_range = lister.range_nodes
 
             if res is None or len(res) == 0:
                 newbody.append(self.visit(child_))
@@ -3920,9 +3884,7 @@ class ElementalIntrinsicNodeLister(NodeVisitor):
         self.scope_vars = scope_vars
         self.structures = structures
 
-        self.ELEMENTAL_INTRINSICS = set(
-            ["EXP","MAX","MIN"]
-        )
+        self.ELEMENTAL_INTRINSICS = {"EXP", "MAX", "MIN"}
 
     def visit_BinOp_Node(self, node: ast_internal_classes.BinOp_Node):
 

@@ -1452,6 +1452,7 @@ class CPUCodeGen(TargetCodeGenerator):
         outer_stream_begin = CodeIOStream()
         outer_stream_end = CodeIOStream()
         inner_stream = CodeIOStream()
+        # breakpoint()
 
         # Add code to init and exit functions
         self._frame._initcode.write(codeblock_to_cpp(node.code_init), sdfg)

@@ -1927,11 +1927,12 @@ def _track_local_consts(node: Base, alias_map: SPEC_TABLE,
         _integrate_subresults(knowns, set())
         for op in node.children:
             # TODO: We wouldn't need the exception handling once we implement for all node types.
-            try:
-                tp, tm = _track_local_consts(op, alias_map, plus, minus)
-                _integrate_subresults(tp, tm)
-            except NotImplementedError:
-                plus, minus = {}, set()
+            # try:
+            tp, tm = _track_local_consts(op, alias_map, plus, minus)
+            _integrate_subresults(tp, tm)
+            # except NotImplementedError:
+            #     breakpoint()
+            #     plus, minus = {}, set()
     elif isinstance(node, Assignment_Stmt):
         lv, op, rv = node.children
         _inject_knowns(rv)
@@ -2031,6 +2032,7 @@ def _track_local_consts(node: Base, alias_map: SPEC_TABLE,
             tp, tm = _track_local_consts(a, alias_map)
             _integrate_subresults({}, tm | tp.keys())
     else:
+        breakpoint()
         raise NotImplementedError(f"cannot handle {node} | {type(node)}")
 
     return plus, minus

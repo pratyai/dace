@@ -325,6 +325,11 @@ class CPPUnparser:
                     target = None
                 else:
                     target = target.elts[0]
+            # if 'tmp_index_30_out' == target.id:
+            #     from dace import SDFG
+            #     g = SDFG.from_file('/Users/pmz/Downloads/bleh.sdfg')
+            #     g.compile()
+            #     breakpoint()
 
             if target and not isinstance(target, (ast.Subscript, ast.Attribute)) and not self.locals.is_defined(
                     target.id, self._indent):

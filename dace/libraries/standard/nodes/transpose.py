@@ -257,12 +257,12 @@ class Transpose(dace.sdfg.nodes.LibraryNode):
                 subset = dc(memlet.subset)
                 subset.squeeze()
                 in_size = subset.size()
+                if len(in_size) < 2:
+                    in_size.extend([1] * (2-len(in_size)))
         out_edges = state.out_edges(self)
-        if len(out_edges) != 1:
-            raise ValueError("Expected exactly one output from transpose operation")
+        assert len(out_edges) == 1, f"Expected exactly one output from transpose operation; got {len(out_edges)}"
         out_memlet = out_edges[0].data
-        if len(in_size) != 2:
-            raise ValueError("Transpose operation only supported on matrices")
+        assert len(in_size) == 2, f"Transpose operation only supported on matrices; got dimensions {len(in_size)}"
         out_subset = dc(out_memlet.subset)
         out_subset.squeeze()
         out_size = out_subset.size()

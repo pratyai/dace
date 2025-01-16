@@ -443,6 +443,11 @@ class Memlet(object):
         :param wcr: The conflict resolution lambda.
         :type datadesc: Data
         """
+        # if dataname == 'config.sw_albedo_weights':
+        #     from dace import SDFG
+        #     g = SDFG.from_file('/Users/pmz/Downloads/bleh.sdfg')
+        #     g.compile()
+        #     breakpoint()
         rng = subsets.Range.from_array(datadesc)
         return Memlet.simple(dataname, rng, wcr_str=wcr)
 
