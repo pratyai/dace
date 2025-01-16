@@ -3677,6 +3677,20 @@ def create_sdfg_from_fortran_file_with_options(
             ast2sdfg.actual_offsets_per_sdfg[sdfg] = {}
             ast2sdfg.top_level = program
             ast2sdfg.globalsdfg = sdfg
+
+            class Vis(ast_transforms.NodeVisitor):
+                def __init__(self):
+                    self.drefs: List[ast_internal_classes.Data_Ref_Node] = []
+
+                def visit_Data_Ref_Node(self, node: ast_internal_classes.Data_Ref_Node):
+                    self.drefs.append(node)
+
+            vis = Vis()
+            vis.visit(program)
+            for dr in vis.drefs:
+                assert dr.type != 'VOID'
+
+
             ast2sdfg.translate(program, sdfg, sdfg)
             sdfg.validate()
             sdfg.save(os.path.join(sdfgs_dir, sdfg.name + "_raw_before_intrinsics_full.sdfgz"), compress=True)
