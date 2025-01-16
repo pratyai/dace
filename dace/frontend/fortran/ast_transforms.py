@@ -1439,8 +1439,8 @@ class IndexExtractor(NodeTransformer):
         self.program = ast
         self.replacements = {}
 
+        ParentScopeAssigner().visit(ast)
         if normalize_offsets:
-            ParentScopeAssigner().visit(ast)
             self.scope_vars = ScopeVarsDeclarations(ast)
             self.scope_vars.visit(ast)
             self.structures = ast.structures
@@ -1491,6 +1491,20 @@ class IndexExtractor(NodeTransformer):
             if res is not None:
                 for j, parent_node in res:
                     for idx, i in enumerate(j.indices):
+                        # ParentScopeAssigner().visit(i.parent)
+                        # class Vis(NodeVisitor):
+                        #     def __init__(self, me):
+                        #         self.me = me
+                        #         self.found = False
+                        #     def generic_visit(self, who):
+                        #         if who is self.me:
+                        #             self.found = True
+                        #         return super().generic_visit(who)
+                        # v = Vis(i)
+                        # v.visit(i.parent)
+                        # if not v.found:
+                        #     breakpoint()
+                        # assert v.found
 
                         if isinstance(i, ast_internal_classes.ParDecl_Node):
                             continue

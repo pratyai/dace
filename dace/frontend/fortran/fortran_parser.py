@@ -2934,6 +2934,7 @@ def run_ast_transformations(own_ast: ast_components.InternalFortranAst, program:
 
     program = ast_transforms.ArrayToLoop(program).visit(program)
     program = ast_transforms.ForDeclarer().visit(program)
+    program = ast_transforms.TypeInference(program, assert_voids=False).visit(program)
     program = ast_transforms.IndexExtractor(program, normalize_offsets).visit(program)
     program = ast_transforms.optionalArgsExpander(program)
     #program = ast_transforms.ParDeclOffsetNormalizer(program).visit(program)
