@@ -77,11 +77,14 @@ class BinOp_Node(FNode):
 
 
 class UnOp_Node(FNode):
-    _attributes = (
-        'op',
-        'postfix',
-        'type',
-    )
+    def __init__(self, op: str, lval: FNode, postfix: bool = False, type: str = 'VOID', **kwargs):
+        super().__init__(**kwargs)
+        self.op = op
+        self.lval = lval
+        self.postfix = postfix
+        self.type = type
+
+    _attributes = ('op', 'postfix', 'type')
     _fields = ('lval',)
 
 
@@ -250,7 +253,13 @@ class Program_Stmt_Node(FNode):
 
 
 class Subroutine_Stmt_Node(FNode):
-    _attributes = ('name',)
+    def __init__(self, name: 'Name_Node', args: List[FNode], elemental: bool, **kwargs):
+        super().__init__(**kwargs)
+        self.name = name
+        self.args = args
+        self.elemental = elemental
+
+    _attributes = ('name', 'elemental')
     _fields = ('args',)
 
 
@@ -311,6 +320,14 @@ class Generic_Binding_Node(FNode):
 
 
 class Specification_Part_Node(FNode):
+    def __init__(self, specifications, symbols, typedecls, enums, interface_blocks=None, **kwargs):
+        super().__init__(**kwargs)
+        self.specifications = specifications
+        self.symbols = symbols
+        self.interface_blocks = interface_blocks
+        self.typedecls = typedecls
+        self.enums = enums
+
     _fields = ('specifications', 'symbols', 'interface_blocks', 'typedecls', 'enums',)
 
 
@@ -452,10 +469,18 @@ class Var_Decl_Node(Statement_Node):
 
 
 class Arg_List_Node(FNode):
+    def __init__(self, args: List[FNode], **kwargs):
+        super().__init__(**kwargs)
+        self.args = args
+
     _fields = ('args',)
 
 
 class Component_Spec_List_Node(FNode):
+    def __init__(self, args: List[FNode], **kwargs):
+        super().__init__(**kwargs)
+        self.args = args
+
     _fields = ('args',)
 
 
@@ -477,10 +502,16 @@ class Decl_Stmt_Node(Statement_Node):
 
 
 class VarType:
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     _attributes = ()
 
 
 class Void(VarType):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     _attributes = ()
 
 
@@ -623,12 +654,15 @@ class Map_Stmt_Node(For_Stmt_Node):
 
 
 class If_Stmt_Node(FNode):
+    def __init__(self, cond: FNode, body: Optional[List[FNode]] = None,
+                 body_else: Optional[List[FNode]] = None, **kwargs):
+        super().__init__(**kwargs)
+        self.cond = cond
+        self.body = body
+        self.body_else = body_else
+
     _attributes = ()
-    _fields = (
-        'cond',
-        'body',
-        'body_else',
-    )
+    _fields = ('cond', 'body', 'body_else',)
 
 
 class Defer_Shape_Node(FNode):
@@ -642,6 +676,11 @@ class Component_Initialization_Node(FNode):
 
 
 class Case_Cond_Node(FNode):
+    def __init__(self, cond: List[FNode], op: List[FNode], **kwargs):
+        super().__init__(**kwargs)
+        self.cond = cond
+        self.op = op
+
     _fields = ('cond', 'op')
     _attributes = ()
 
@@ -652,6 +691,11 @@ class Else_Separator_Node(FNode):
 
 
 class Procedure_Separator_Node(FNode):
+    def __init__(self, parent_ref: FNode, part_ref: FNode, **kwargs):
+        super().__init__(**kwargs)
+        self.parent_ref = parent_ref
+        self.part_ref = part_ref
+
     _attributes = ()
     _fields = ('parent_ref', 'part_ref')
 
@@ -763,46 +807,61 @@ class Parenthesis_Expr_Node(FNode):
 
 
 class Nonlabel_Do_Stmt_Node(FNode):
+    def __init__(self, init: FNode, cond: FNode, iter: FNode, **kwargs):
+        super().__init__(**kwargs)
+        self.init = init
+        self.cond = cond
+        self.iter = iter
+
     _attributes = ()
-    _fields = (
-        'init',
-        'cond',
-        'iter',
-    )
+    _fields = ('init', 'cond', 'iter')
 
 
 class While_True_Control(FNode):
+    def __init__(self, name: FNode, **kwargs):
+        super().__init__(**kwargs)
+        self.name = name
+
     _attributes = ()
-    _fields = (
-        'name',
-    )
+    _fields = ('name',)
 
 
 class While_Control(FNode):
+    def __init__(self, cond: FNode, **kwargs):
+        super().__init__(**kwargs)
+        self.cond = cond
+
     _attributes = ()
-    _fields = (
-        'cond',
-    )
+    _fields = ('cond',)
 
 
 class While_Stmt_Node(FNode):
-    _attributes = ('name')
-    _fields = (
-        'body',
-        'cond',
-    )
+    def __init__(self, cond: FNode, body: Optional[List[FNode]] = None, name: Optional[FNode]=None, **kwargs):
+        super().__init__(**kwargs)
+        self.cond = cond
+        self.body = body
+        self.name = name
+
+    _attributes = ('name',)
+    _fields = ('body', 'cond')
 
 
 class Loop_Control_Node(FNode):
+    def __init__(self, init: FNode, cond: FNode, iter: FNode, **kwargs):
+        super().__init__(**kwargs)
+        self.init = init
+        self.cond = cond
+        self.iter = iter
+
     _attributes = ()
-    _fields = (
-        'init',
-        'cond',
-        'iter',
-    )
+    _fields = ('init', 'cond', 'iter')
 
 
 class Else_If_Stmt_Node(FNode):
+    def __init__(self, cond: FNode, **kwargs):
+        super().__init__(**kwargs)
+        self.cond = cond
+
     _attributes = ()
     _fields = ('cond',)
 
