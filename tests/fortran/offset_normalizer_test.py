@@ -281,11 +281,11 @@ end subroutine fun
 
 
 if __name__ == "__main__":
-    test_fortran_frontend_offset_normalizer_1d()
-    test_fortran_frontend_offset_normalizer_2d()
-    test_fortran_frontend_offset_normalizer_2d_arr2loop()
-    test_fortran_frontend_offset_normalizer_1d_symbol()
-    test_fortran_frontend_offset_normalizer_2d_symbol()
-    test_fortran_frontend_offset_normalizer_2d_arr2loop_symbol()
-    test_fortran_frontend_offset_normalizer_struct()
+    # test_fortran_frontend_offset_normalizer_1d()
+    # test_fortran_frontend_offset_normalizer_2d()
+    # test_fortran_frontend_offset_normalizer_2d_arr2loop()
+    # test_fortran_frontend_offset_normalizer_1d_symbol()
+    # test_fortran_frontend_offset_normalizer_2d_symbol()
+    # test_fortran_frontend_offset_normalizer_2d_arr2loop_symbol()
+    # test_fortran_frontend_offset_normalizer_struct()
     test_fortran_frontend_offset_pardecl()

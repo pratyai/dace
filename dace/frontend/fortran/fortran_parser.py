@@ -21,6 +21,7 @@ import dace.frontend.fortran.ast_components as ast_components
 import dace.frontend.fortran.ast_internal_classes as ast_internal_classes
 import dace.frontend.fortran.ast_transforms as ast_transforms
 from dace import Language as lang
+from dace.sdfg import nodes as nd
 from dace import SDFG, InterstateEdge, Memlet, pointer, SDFGState
 from dace import data as dat
 from dace import dtypes
