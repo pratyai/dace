@@ -703,22 +703,21 @@ class ArgumentExtractor(NodeTransformer):
         DIRECTLY_REFERNCEABLE = (ast_internal_classes.Name_Node, ast_internal_classes.Literal,
                                  ast_internal_classes.Array_Subscript_Node, ast_internal_classes.Data_Ref_Node)
 
+        node.args = [self.visit(a) for a in node.args]
         from dace.frontend.fortran.intrinsics import FortranIntrinsics
         if node.name.name in ["malloc", "pow", "cbrt", "__dace_epsilon",
                               *FortranIntrinsics.call_extraction_exemptions()]:
-            return self.visit(node)
-        result = ast_internal_classes.Call_Expr_Node(
-            name=node.name, args=[], type=node.type, subroutine=node.subroutine,
-            line_number=node.line_number, parent=node.parent)
+            return node
 
-        for i, arg in enumerate(node.args):
+        args = []
+        for arg in node.args:
             # Ensure we allow to extract function calls from arguments
             if (isinstance(arg, DIRECTLY_REFERNCEABLE)
                     or (isinstance(arg, ast_internal_classes.Actual_Arg_Spec_Node)
                         and isinstance(arg.arg, DIRECTLY_REFERNCEABLE))):
                 # If it is a node type that's allowed to be directly referenced in a (possibly keyworded) function
                 # argument, then we keep the node as is.
-                result.args.append(arg)
+                args.append(arg)
                 continue
 
             # These needs to be extracted, so register a temporary variable.
@@ -731,7 +730,7 @@ class ArgumentExtractor(NodeTransformer):
 
             if isinstance(arg, ast_internal_classes.Actual_Arg_Spec_Node):
                 self.visit(arg.arg)
-                result.args.append(ast_internal_classes.Actual_Arg_Spec_Node(
+                args.append(ast_internal_classes.Actual_Arg_Spec_Node(
                     arg_name=arg.arg_name,
                     arg=ast_internal_classes.Name_Node(
                         name=tmpname, type=arg.arg.type, line_number=node.line_number, parent=node.parent)))
@@ -741,7 +740,7 @@ class ArgumentExtractor(NodeTransformer):
                     rval=arg.arg, line_number=node.line_number, parent=node.parent)
             else:
                 self.visit(arg)
-                result.args.append(ast_internal_classes.Name_Node(
+                args.append(ast_internal_classes.Name_Node(
                     name=tmpname, type=arg.type, line_number=node.line_number, parent=node.parent))
                 asgn = ast_internal_classes.BinOp_Node(
                     op="=",
@@ -750,14 +749,16 @@ class ArgumentExtractor(NodeTransformer):
                     rval=arg, line_number=node.line_number, parent=node.parent)
 
             self.execution_preludes[-1].append(asgn)
-        return result
+        return ast_internal_classes.Call_Expr_Node(
+            name=node.name, args=args, type=node.type, subroutine=node.subroutine,
+            line_number=node.line_number, parent=node.parent)
 
     def visit_Execution_Part_Node(self, node: ast_internal_classes.Execution_Part_Node):
         newbody = []
         self.execution_preludes.append([])
         for ex in node.execution:
             ex = self.visit(ex)
-            newbody.extend(reversed(self.execution_preludes[-1]))
+            newbody.extend(self.execution_preludes[-1])
             newbody.append(ex)
             self.execution_preludes[-1].clear()
         self.execution_preludes.pop()
@@ -977,13 +978,13 @@ class CallExtractor(NodeTransformer):
 
     def visit_Call_Expr_Node(self, node: ast_internal_classes.Call_Expr_Node):
         from dace.frontend.fortran.intrinsics import FortranIntrinsics
+        node.args = [self.visit(a) for a in node.args]
         if node.name.name in ["malloc", "pow", "cbrt", "__dace_epsilon",
                               *FortranIntrinsics.call_extraction_exemptions()]:
-            return self.visit(node)
+            return node
         if node.subroutine:
-            return self.visit(node)
+            return node
 
-        args = [self.visit(a) for a in node.args]
 
         # `visit_BinOp_Node()` takes care of the already assigned nodes. So, now we are in a function call inside an
         # expression. So, register a temporary variable.
@@ -1007,7 +1008,7 @@ class CallExtractor(NodeTransformer):
         self.execution_preludes.append([])
         for ex in node.execution:
             ex = self.visit(ex)
-            newbody.extend(reversed(self.execution_preludes[-1]))
+            newbody.extend(self.execution_preludes[-1])
             newbody.append(ex)
             self.execution_preludes[-1].clear()
         self.execution_preludes.pop()
