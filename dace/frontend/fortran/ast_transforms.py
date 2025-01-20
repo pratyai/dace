@@ -706,10 +706,10 @@ class ArgumentExtractor(NodeTransformer):
         from dace.frontend.fortran.intrinsics import FortranIntrinsics
         if node.name.name in ["malloc", "pow", "cbrt", "__dace_epsilon",
                               *FortranIntrinsics.call_extraction_exemptions()]:
-            return self.generic_visit(node)
+            return self.visit(node)
         result = ast_internal_classes.Call_Expr_Node(
-            name=node.name, args=[], line_number=node.line_number,
-            type=node.type, subroutine=node.subroutine, parent=node.parent)
+            name=node.name, args=[], type=node.type, subroutine=node.subroutine,
+            line_number=node.line_number, parent=node.parent)
 
         for i, arg in enumerate(node.args):
             # Ensure we allow to extract function calls from arguments
@@ -724,21 +724,29 @@ class ArgumentExtractor(NodeTransformer):
             # These needs to be extracted, so register a temporary variable.
             tmpname = TempName.get_name('tmp_arg')
             decl = ast_internal_classes.Decl_Stmt_Node(
-                    vardecl=[ast_internal_classes.Var_Decl_Node(name=tmpname, type='VOID', sizes=None, init=None)])
+                    vardecl=[ast_internal_classes.Var_Decl_Node(
+                        name=tmpname, type=node.type, sizes=None, init=None,
+                        line_number=node.line_number, parent=node.parent)])
             node.parent.specification_part.specifications.append(decl)
 
             if isinstance(arg, ast_internal_classes.Actual_Arg_Spec_Node):
-                self.generic_visit(arg.arg)
+                self.visit(arg.arg)
                 result.args.append(ast_internal_classes.Actual_Arg_Spec_Node(
-                    arg_name=arg.arg_name, arg=ast_internal_classes.Name_Node(name=tmpname, type=arg.arg.type)))
+                    arg_name=arg.arg_name,
+                    arg=ast_internal_classes.Name_Node(
+                        name=tmpname, type=arg.arg.type, line_number=node.line_number, parent=node.parent)))
                 asgn = ast_internal_classes.BinOp_Node(
-                    op="=", lval=ast_internal_classes.Name_Node(name=tmpname, type=arg.arg.type),
+                    op="=", lval=ast_internal_classes.Name_Node(
+                        name=tmpname, type=arg.arg.type, line_number=node.line_number, parent=node.parent),
                     rval=arg.arg, line_number=node.line_number, parent=node.parent)
             else:
-                self.generic_visit(arg)
-                result.args.append(ast_internal_classes.Name_Node(name=tmpname, type=arg.type))
+                self.visit(arg)
+                result.args.append(ast_internal_classes.Name_Node(
+                    name=tmpname, type=arg.type, line_number=node.line_number, parent=node.parent))
                 asgn = ast_internal_classes.BinOp_Node(
-                    op="=", lval=ast_internal_classes.Name_Node(name=tmpname, type=arg.type),
+                    op="=",
+                    lval=ast_internal_classes.Name_Node(
+                        name=tmpname, type=arg.type, line_number=node.line_number, parent=node.parent),
                     rval=arg, line_number=node.line_number, parent=node.parent)
 
             self.execution_preludes[-1].append(asgn)
@@ -753,7 +761,8 @@ class ArgumentExtractor(NodeTransformer):
             newbody.append(ex)
             self.execution_preludes[-1].clear()
         self.execution_preludes.pop()
-        return ast_internal_classes.Execution_Part_Node(execution = newbody)
+        return ast_internal_classes.Execution_Part_Node(
+            execution=newbody, line_number=node.line_number, parent=node.parent)
 
 
 class FunctionCallTransformer(NodeTransformer):
