@@ -17,6 +17,7 @@ from fparser.two.parser import ParserFactory as pf, ParserFactory
 from fparser.two.symbol_table import SymbolTable
 from fparser.two.utils import Base, walk
 
+import dace
 import dace.frontend.fortran.ast_components as ast_components
 import dace.frontend.fortran.ast_internal_classes as ast_internal_classes
 import dace.frontend.fortran.ast_transforms as ast_transforms
@@ -36,11 +37,13 @@ from dace.frontend.fortran.ast_desugaring import ENTRY_POINT_OBJECT_CLASSES, NAM
     exploit_locally_constant_variables, assign_globally_unique_subprogram_names, \
     create_global_initializers, convert_data_statements_into_assignments, deconstruct_statement_functions, \
     assign_globally_unique_variable_names
-from dace.frontend.fortran.ast_internal_classes import FNode, Main_Program_Node
+from dace.frontend.fortran.ast_internal_classes import FNode, Main_Program_Node, Var_Decl_Node, Decl_Stmt_Node, \
+    BinOp_Node
 from dace.frontend.fortran.ast_utils import children_of_type, mywalk, atmost_one
 from dace.frontend.fortran.intrinsics import IntrinsicSDFGTransformation, NeedsTypeInferenceException
 from dace.properties import CodeBlock
 from dace.sdfg import nodes as nd
+from dace.sdfg.nodes import AccessNode
 from dace.sdfg.state import BreakBlock, ConditionalBlock, ContinueBlock, ControlFlowRegion, LoopRegion
 
 global_struct_instance_counter = 0
@@ -529,6 +532,9 @@ class AST_translator:
 
         self.transient_mode = True
         self.translate(self.startpoint.execution_part.execution, sdfg, cfg)
+        # sdfg.save('/Users/pmz/Downloads/bleh.sdfg')
+        # g = SDFG.from_file('/Users/pmz/Downloads/bleh.sdfg')
+        # breakpoint()
         sdfg.validate()
 
     def pointerassignment2sdfg(self, node: ast_internal_classes.Pointer_Assignment_Stmt_Node, sdfg: SDFG,
@@ -896,6 +902,85 @@ class AST_translator:
         return NotImplementedError(
             "Symbol_Decl_Node not implemented. This should be done via a transformation that itemizes the constant array."
         )
+
+    def subroutine2sdfg_alt(self, node: ast_internal_classes.Subroutine_Subprogram_Node, name = 'main') -> SDFG:
+        g = SDFG(name)
+        st0 = g.add_state('st0', is_start_state=True)
+        TYPZ = {
+            'INTEGER': dace.int32,
+            'DOUBLE': dace.float64,
+        }
+        for sp in node.specification_part.specifications:
+            for var in sp.vardecl:
+                g.add_scalar(var.name, TYPZ[var.type])
+                if var.init:
+                    st0.add_tasklet('t0', {}, {}, f"{var.name} = {var.init.value}")
+        for ex in node.execution_part.execution:
+            if not isinstance(ex, Decl_Stmt_Node):
+                continue
+            for var in ex.vardecl:
+                g.add_scalar(var.name, TYPZ[var.type])
+                if var.init:
+                    st0.add_tasklet('t0', {}, {}, f"{var.name} = {var.init.value}")
+        st1 = g.add_state_after(st0, 'st1')
+        cend = None
+        last_access = {}
+
+        def _ingest_expr(x: ast_internal_classes.FNode,
+                         racc: Dict[str, Tuple[AccessNode, Memlet]],
+                         wacc: Optional[Dict[str, Tuple[AccessNode, Memlet]]] = None) -> str:
+            if isinstance(x, ast_internal_classes.Name_Node):
+                xvac = st1.add_access(x.name)
+                xc = f"{x.name}"
+                if wacc is not None:
+                    wacc[x.name] = (xvac, Memlet(xc))
+                else:
+                    racc[x.name] = (xvac, Memlet(xc))
+                return xc
+            elif isinstance(x, ast_internal_classes.Array_Subscript_Node):
+                x, idx = x.name, x.indices
+                idx = [_ingest_expr(i, racc) for i in idx]
+                xvac = st1.add_access(x.name)
+                xc = f"{x.name}[{', '.join(idx)}]"
+                if wacc is not None:
+                    wacc[x.name] = (xvac, Memlet(xc))
+                else:
+                    racc[x.name] = (xvac, Memlet(xc))
+                return xc
+            elif isinstance(x, ast_internal_classes.BinOp_Node):
+                lc, rc = _ingest_expr(x.lval, racc), _ingest_expr(x.rval, racc)
+                return f"({lc}) {x.op} ({rc})"
+            elif isinstance(x, ast_internal_classes.Literal):
+                return f"{x.value}"
+            else:
+                raise NotImplementedError
+
+        for ex in node.execution_part.execution:
+            if isinstance(ex, Decl_Stmt_Node):
+                continue
+            if isinstance(ex, BinOp_Node):
+                if ex.op == '=':
+                    read_acc, write_acc = {}, {}
+                    lvc = _ingest_expr(ex.lval, read_acc, write_acc)
+                    rvc = _ingest_expr(ex.rval, read_acc)
+
+                    nt = st1.add_tasklet(f"t{len(st1.nodes())}", set(read_acc.keys()), set(write_acc.keys()), f"{lvc} = {rvc}")
+                    for k, vm in read_acc.items():
+                        v, m = vm
+                        st1.add_edge(v, None, nt, f"{k}", m)
+                    for k, vm in write_acc.items():
+                        v, m = vm
+                        st1.add_edge(nt, f"{k}", v, None, m)
+                    if cend:
+                        st1.add_edge(cend, None, nt, None, Memlet())
+
+                    last_access.update({k: vm[0] for k, vm in write_acc.items()})
+                    cend = nt
+                else:
+                    raise NotImplementedError
+        g.save('/Users/pmz/Downloads/bleh.sdfg')
+        g.compile()
+        return g
 
     def subroutine2sdfg(self, node: ast_internal_classes.Subroutine_Subprogram_Node, sdfg: SDFG,
                         cfg: ControlFlowRegion):
@@ -1775,7 +1860,7 @@ class AST_translator:
             self.views = self.views + 1
             is_scalar=(len(shape)==0) or (len(shape)==1 and shape[0]==1)
             is_local_scalar=(len(local_shape)==0) or (len(local_shape)==1 and local_shape[0]==1)
-            
+
             if local_shape!=shape and (not(is_scalar and is_local_scalar)):
                 #we must add an extra view reshaping the access to the local shape
                 if len(shape)==len(local_shape):
@@ -1788,10 +1873,10 @@ class AST_translator:
                             local_offsets[i]=offsets[i]
                             recompute_strides=True
                     if recompute_strides:
-                        local_strides = [dat._prod(local_shape[:i]) for i in range(len(local_shape))]        
+                        local_strides = [dat._prod(local_shape[:i]) for i in range(len(local_shape))]
 
-                            
-                else:    
+
+                else:
                     if len(local_shape)!=1:
                         raise NotImplementedError("Local shape not 1")
                     reshape_viewname, reshape_view = sdfg.add_view(sdfg_name + "_view_reshape_" + str(self.views),
@@ -1914,8 +1999,8 @@ class AST_translator:
                                 #         local_offsets[i]=offsets[i]
                                 #         recompute_strides=True
                                 # if recompute_strides:
-                                #     local_strides = [dat._prod(local_shape[:i]) for i in range(len(local_shape))]        
-                            else:    
+                                #     local_strides = [dat._prod(local_shape[:i]) for i in range(len(local_shape))]
+                            else:
                                 raise NotImplementedError("Local shape not the same as outside shape")  
                         new_sdfg.add_array(self.name_mapping[new_sdfg][local_name.name],
                                 shape,
@@ -1987,6 +2072,7 @@ class AST_translator:
                 input_names.append(mapped_name)
                 input_names_tasklet.append(i.name + "_" + str(count) + "_in")
 
+        node.line_number = (0, 0)
         substate = self._add_simple_state_to_cfg(
             cfg, "_state_l" + str(node.line_number[0]) + "_c" + str(node.line_number[1]))
 
@@ -2761,6 +2847,8 @@ def create_sdfg_from_internal_ast(own_ast: ast_components.InternalFortranAst, pr
         ast2sdfg.actual_offsets_per_sdfg[g] = {}
         ast2sdfg.top_level = program
         ast2sdfg.globalsdfg = g
+        # omg = ast2sdfg.subroutine2sdfg_alt(program.subroutine_definitions[0])
+        # omg.compile()
         ast2sdfg.translate(program, g, g)
         g.reset_cfg_list()
         from dace.transformation.passes.lift_struct_views import LiftStructViews

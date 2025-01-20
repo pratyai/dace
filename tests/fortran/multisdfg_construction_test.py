@@ -41,7 +41,12 @@ end program main
 subroutine fun(d)
   implicit none
   double precision, intent(inout) :: d(4)
-  d(2) = 4.2
+  d(f2()) = 4.2
+  contains
+  integer function f2()
+    implicit none
+    f2 = 2
+  end function f2
 end subroutine fun
 """).check_with_gfortran().get()
     # Construct

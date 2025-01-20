@@ -1159,7 +1159,8 @@ class IndexExtractor(NodeTransformer):
                     name=tmpname, type='INTEGER', sizes=None, init=None,
                     line_number=node.line_number, parent=node.parent)])
             node.parent.specification_part.specifications.append(decl)
-            result.indices.append(ast_internal_classes.Name_Node(name=tmpname, type=idx.type))
+            result.indices.append(ast_internal_classes.Name_Node(
+                name=tmpname, type=idx.type, line_number=node.line_number, parent=node.parent))
             asgn = ast_internal_classes.BinOp_Node(
                 op="=",
                 lval=ast_internal_classes.Name_Node(
