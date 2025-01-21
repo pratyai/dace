@@ -29,6 +29,7 @@ def test_fortran_frontend_arr2loop_without_offset():
     # Now test to verify it executes correctly with no offset normalization
 
     sdfg = fortran_parser.create_sdfg_from_string(test_string, "index_test", False)
+    sdfg.save('/Users/pmz/Downloads/bleh.sdfg')
     sdfg.simplify(verbose=True)
     sdfg.compile()
 
@@ -38,6 +39,7 @@ def test_fortran_frontend_arr2loop_without_offset():
 
     a = np.full([5,9], 42, order="F", dtype=np.float64)
     sdfg(d=a)
+    print(a)
     for i in range(1,6):
         for j in range(1,4):
             assert a[i-1, j-1] == i * 2

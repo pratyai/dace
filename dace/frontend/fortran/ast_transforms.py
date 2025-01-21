@@ -947,6 +947,153 @@ class FunctionToSubroutineDefiner(NodeTransformer):
             elemental=node.elemental)
 
 
+class CallExtractorNodeLister(NodeVisitor):
+    """
+    Finds all function calls in the AST node and its children that have to be extracted into independent expressions
+    """
+
+    def __init__(self, root=None):
+        self.root = root
+        self.nodes: List[ast_internal_classes.Call_Expr_Node] = []
+
+    def visit_For_Stmt_Node(self, node: ast_internal_classes.For_Stmt_Node):
+        self.generic_visit(node.init)
+        self.generic_visit(node.cond)
+        return
+
+    def visit_If_Stmt_Node(self, node: ast_internal_classes.If_Stmt_Node):
+        self.generic_visit(node.cond)
+        return
+
+    def visit_While_Stmt_Node(self, node: ast_internal_classes.While_Stmt_Node):
+        self.generic_visit(node.cond)
+        return
+
+    def visit_Call_Expr_Node(self, node: ast_internal_classes.Call_Expr_Node):
+        stop = False
+        if self.root == node:
+            return self.generic_visit(node)
+        if isinstance(self.root, ast_internal_classes.BinOp_Node):
+            if node == self.root.rval and isinstance(self.root.lval, ast_internal_classes.Name_Node):
+                return self.generic_visit(node)
+        if hasattr(node, "subroutine"):
+            if node.subroutine is True:
+                stop = True
+
+        from dace.frontend.fortran.intrinsics import FortranIntrinsics
+        if not stop and node.name.name not in [
+            "malloc", "pow", "cbrt", "__dace_epsilon", *FortranIntrinsics.call_extraction_exemptions()
+        ]:
+            self.nodes.append(node)
+        # return self.generic_visit(node)
+
+    def visit_Execution_Part_Node(self, node: ast_internal_classes.Execution_Part_Node):
+        return
+
+
+class CallExtractorOld(NodeTransformer):
+    """
+    Uses the CallExtractorNodeLister to find all function calls
+    in the AST node and its children that have to be extracted into independent expressions
+    It then creates a new temporary variable for each of them and replaces the call with the variable.
+    """
+
+    def __init__(self, ast, count=0):
+        self.count = count
+
+        ParentScopeAssigner().visit(ast)
+
+    def visit_Call_Expr_Node(self, node: ast_internal_classes.Call_Expr_Node):
+
+        from dace.frontend.fortran.intrinsics import FortranIntrinsics
+        if node.name.name in ["malloc", "pow", "cbrt", "__dace_epsilon",
+                              *FortranIntrinsics.call_extraction_exemptions()]:
+            return self.generic_visit(node)
+        if hasattr(node, "subroutine"):
+            if node.subroutine is True:
+                return self.generic_visit(node)
+        if not hasattr(self, "count"):
+            self.count = 0
+        else:
+            self.count = self.count + 1
+        tmp = self.count
+
+        # for i, arg in enumerate(node.args):
+        #    # Ensure we allow to extract function calls from arguments
+        #    node.args[i] = self.visit(arg)
+
+        return ast_internal_classes.Name_Node(name="tmp_call_" + str(tmp - 1))
+
+    def visit_Execution_Part_Node(self, node: ast_internal_classes.Execution_Part_Node):
+
+        oldbody = node.execution
+        changes_made = True
+        while changes_made:
+            changes_made = False
+            newbody = []
+            for child in oldbody:
+                lister = CallExtractorNodeLister(child)
+                lister.visit(child)
+                res = lister.nodes
+
+                if len(res) > 0:
+                    changes_made = True
+                    # Variables are counted from 0...end, starting from main node, to all calls nested
+                    # in main node arguments.
+                    # However, we need to define nested ones first.
+                    # We go in reverse order, counting from end-1 to 0.
+                    temp = self.count + len(res) - 1
+                    for i in reversed(range(0, len(res))):
+
+                        node.parent.specification_part.specifications.append(
+                            ast_internal_classes.Decl_Stmt_Node(vardecl=[
+                                ast_internal_classes.Var_Decl_Node(
+                                    name="tmp_call_" + str(temp),
+                                    type=res[i].type,
+                                    sizes=None,
+                                    init=None
+                                )
+                            ])
+                        )
+                        newbody.append(
+                            ast_internal_classes.BinOp_Node(op="=",
+                                                            lval=ast_internal_classes.Name_Node(
+                                                                name="tmp_call_" + str(temp), type=res[i].type),
+                                                            rval=res[i], line_number=child.line_number,
+                                                            parent=child.parent))
+                        temp = temp - 1
+                if isinstance(child, ast_internal_classes.Call_Expr_Node):
+                    new_args = []
+                    for i in child.args:
+                        new_args.append(self.visit(i))
+                    new_child = ast_internal_classes.Call_Expr_Node(type=child.type, subroutine=child.subroutine,
+                                                                    name=child.name, args=new_args,
+                                                                    line_number=child.line_number, parent=child.parent)
+                    newbody.append(new_child)
+                elif isinstance(child, ast_internal_classes.BinOp_Node):
+                    if isinstance(child.lval, ast_internal_classes.Name_Node) and isinstance(child.rval,
+                                                                                             ast_internal_classes.Call_Expr_Node):
+                        new_args = []
+                        for i in child.rval.args:
+                            new_args.append(self.visit(i))
+                        new_child = ast_internal_classes.Call_Expr_Node(type=child.rval.type,
+                                                                        subroutine=child.rval.subroutine,
+                                                                        name=child.rval.name, args=new_args,
+                                                                        line_number=child.rval.line_number,
+                                                                        parent=child.rval.parent)
+                        newbody.append(ast_internal_classes.BinOp_Node(op=child.op,
+                                                                       lval=child.lval,
+                                                                       rval=new_child, line_number=child.line_number,
+                                                                       parent=child.parent))
+                    else:
+                        newbody.append(self.visit(child))
+                else:
+                    newbody.append(self.visit(child))
+            oldbody = newbody
+
+        return ast_internal_classes.Execution_Part_Node(execution=newbody)
+
+
 class CallExtractor(NodeTransformer):
     """
     Uses the CallExtractorNodeLister to find all function calls
@@ -968,7 +1115,9 @@ class CallExtractor(NodeTransformer):
     def visit_BinOp_Node(self, node: ast_internal_classes.BinOp_Node):
         lval = self.visit(node.lval)
         rval = node.rval
-        if node.op == '=' and isinstance(rval, ast_internal_classes.Call_Expr_Node):
+        if (node.op == '='
+                and isinstance(rval, ast_internal_classes.Call_Expr_Node)
+                and isinstance(lval, ast_internal_classes.Name_Node)):
             # Outer layer is already extracted, so look for the inner layers only, if any.
             rval.args = [self.visit(arg) for arg in node.rval.args]
         else:
@@ -1097,6 +1246,8 @@ class ScopeVarsDeclarations(NodeVisitor):
         elif variable_name in self.module_declarations:
             return self.module_declarations[variable_name]
         else:
+            if variable_name == 'tmp_ale_0':
+                breakpoint()
             raise RuntimeError(
                 f"Couldn't find the declaration of variable {variable_name} in function {self._scope_name(scope)}!")
 
@@ -1771,7 +1922,7 @@ def par_Decl_Range_Finder(node: ast_internal_classes.Array_Subscript_Node,
 
             rangepos.append(currentindex)
             if declaration:
-                newbody.append(
+                node.parent.specification_part.specifications.append(
                     ast_internal_classes.Decl_Stmt_Node(vardecl=[
                         ast_internal_classes.Symbol_Decl_Node(
                             name="tmp_parfor_" + str(count + len(rangepos) - 1), type="INTEGER", sizes=None, init=None,
@@ -3215,21 +3366,22 @@ class ArrayLoopExpander(NodeTransformer):
                 for i in ranges:
                     initrange = i[0]
                     finalrange = i[1]
+                    tmpname = TempName.get_name('tmp_ale')
                     init = ast_internal_classes.BinOp_Node(
-                        lval=ast_internal_classes.Name_Node(name="tmp_parfor_" + str(self.count + range_index)),
+                        lval=ast_internal_classes.Name_Node(name=tmpname),
                         op="=",
                         rval=initrange,
                         line_number=child.line_number,parent=child.parent)
                     cond = ast_internal_classes.BinOp_Node(
-                        lval=ast_internal_classes.Name_Node(name="tmp_parfor_" + str(self.count + range_index)),
+                        lval=ast_internal_classes.Name_Node(name=tmpname),
                         op="<=",
                         rval=finalrange,
                         line_number=child.line_number,parent=child.parent)
                     iter = ast_internal_classes.BinOp_Node(
-                        lval=ast_internal_classes.Name_Node(name="tmp_parfor_" + str(self.count + range_index)),
+                        lval=ast_internal_classes.Name_Node(name=tmpname),
                         op="=",
                         rval=ast_internal_classes.BinOp_Node(
-                            lval=ast_internal_classes.Name_Node(name="tmp_parfor_" + str(self.count + range_index)),
+                            lval=ast_internal_classes.Name_Node(name=tmpname),
                             op="+",
                             rval=ast_internal_classes.Int_Literal_Node(value="1"),parent=child.parent),
                         line_number=child.line_number,parent=child.parent)

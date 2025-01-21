@@ -8,6 +8,7 @@ import copy
 import inspect
 import itertools
 import warnings
+from copy import deepcopy
 from typing import (TYPE_CHECKING, Any, AnyStr, Callable, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Type, Union,
                     overload)
 
@@ -1752,6 +1753,7 @@ class SDFGState(OrderedMultiDiConnectorGraph[nd.Node, mm.Memlet], ControlFlowBlo
                 s.symbol_mapping = symbol_mapping
                 missing_symbols = [s for s in symbols if s not in symbol_mapping]
             if missing_symbols:
+                breakpoint()
                 raise ValueError('Missing symbols on nested SDFG "%s": %s' % (name, missing_symbols))
 
             # Add new global symbols to nested SDFG
@@ -3391,6 +3393,9 @@ class LoopRegion(ControlFlowRegion):
             alltypes.update({k: v.dtype for k, v in self.sdfg.arrays.items()})
             l_end = loop_analysis.get_loop_end(self)
             l_start = loop_analysis.get_init_assignment(self)
+            if not l_start:
+                breakpoint()
+            assert l_start
             l_step = loop_analysis.get_loop_stride(self)
             inferred_type = dtypes.result_type_of(infer_expr_type(l_start, alltypes),
                                                   infer_expr_type(l_step, alltypes),

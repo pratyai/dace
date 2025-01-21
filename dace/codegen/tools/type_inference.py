@@ -64,6 +64,7 @@ def infer_expr_type(code, symbols=None):
     elif isinstance(code, SymExpr):
         parsed_ast = ast.parse(sympy.printing.pycode(code.expr))
     else:
+        breakpoint()
         raise TypeError(f"Cannot convert type {type(code)} to a Python AST.")
 
     # The parsed AST must only contain one expression

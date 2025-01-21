@@ -44,7 +44,7 @@ from dace.frontend.fortran.intrinsics import IntrinsicSDFGTransformation, NeedsT
 from dace.properties import CodeBlock
 from dace.sdfg import nodes as nd
 from dace.sdfg.state import BreakBlock, ConditionalBlock, ContinueBlock, ControlFlowRegion, LoopRegion
-from dace.transformation.passes import RemoveUnusedSymbols, SimplifyPass
+from dace.transformation.passes import RemoveUnusedSymbols, SimplifyPass, ScalarToSymbolPromotion, ArrayElimination
 
 global_struct_instance_counter = 0
 
@@ -534,6 +534,7 @@ class AST_translator:
 
         self.transient_mode = True
         self.translate(self.startpoint.execution_part.execution, sdfg, cfg)
+        # sdfg.save('/Users/pmz/Downloads/bleh.sdfg')
         sdfg.validate()
 
     def pointerassignment2sdfg(self, node: ast_internal_classes.Pointer_Assignment_Stmt_Node, sdfg: SDFG,
@@ -1318,6 +1319,9 @@ class AST_translator:
                                     sym_dict[i] = ast_utils.get_name(var)
                                     memlet_skip.append(ast_utils.get_name(var))
 
+            new_sdfg.save('/Users/pmz/Downloads/bleh.sdfg')
+            for s, t in new_sdfg.symbols.items():
+                sdfg.add_symbol(s, t)
             internal_sdfg = substate.add_nested_sdfg(new_sdfg,
                                                      sdfg,
                                                      ins_in_new_sdfg,
@@ -2026,8 +2030,8 @@ class AST_translator:
                                 #         local_offsets[i]=offsets[i]
                                 #         recompute_strides=True
                                 # if recompute_strides:
-                                #     local_strides = [dat._prod(local_shape[:i]) for i in range(len(local_shape))]        
-                            else:    
+                                #     local_strides = [dat._prod(local_shape[:i]) for i in range(len(local_shape))]
+                            else:
                                 raise NotImplementedError("Local shape not the same as outside shape")
                         shape,strides = self.fix_shapes_before_adding_nested(sdfg,new_sdfg,shape,strides)
                         new_sdfg.add_array(self.name_mapping[new_sdfg][local_name.name],
@@ -2995,6 +2999,7 @@ def create_sdfg_from_internal_ast(own_ast: ast_components.InternalFortranAst, pr
         ast2sdfg.top_level = program
         ast2sdfg.globalsdfg = g
         ast2sdfg.translate(program, g, g)
+        g.save('/Users/pmz/Downloads/bleh.sdfg')
         g.reset_cfg_list()
         from dace.transformation.passes.lift_struct_views import LiftStructViews
         from dace.transformation.pass_pipeline import FixedPointPipeline
@@ -3494,6 +3499,7 @@ def create_sdfg_from_fortran_file_with_options(
         print(f'Saving SDFG {os.path.join(sdfgs_dir, sdfg.name + "_validated_f.sdfgz")}')
         sdfg.save(os.path.join(sdfgs_dir, sdfg.name + "_validated_f.sdfgz"), compress=True)
 
+        sdfg.save('/Users/pmz/Downloads/bleh.sdfg')
         sdfg.simplify(verbose=True)
         print(f'Saving SDFG {os.path.join(sdfgs_dir, sdfg.name + "_simplified_tr.sdfgz")}')
         sdfg.save(os.path.join(sdfgs_dir, sdfg.name + "_simplified_f.sdfgz"), compress=True)
@@ -3566,12 +3572,14 @@ def create_sdfg_from_fortran_file_with_options(
             sdfg.validate()
             sdfg.save(os.path.join(sdfgs_dir, sdfg.name + "_validated_dbg22.sdfgz"), compress=True)
             sdfg.validate()
+            sdfg.save('/Users/pmz/Downloads/bleh.sdfg')
             sdfg.simplify(verbose=True)
             print(f'Saving SDFG {os.path.join(sdfgs_dir, sdfg.name + "_simplified_tr.sdfgz")}')
             sdfg.save(os.path.join(sdfgs_dir, sdfg.name + "_simplified_dbg22.sdfgz"), compress=True)
             sdfg.save(os.path.join(sdfgs_dir, sdfg.name + "_simplified_dbg22full.sdfg"), compress=False)
             sdfg.validate()
-            print(f'Compiling SDFG {os.path.join(sdfgs_dir, sdfg.name + "_simplifiedf22.sdfgz")}')
+            print(f'Compiling SDFG {os.path.join(sdfgs_dir, sdfg.name + "_simplifiedf.sdfgz")}')
+            sdfg.save('/Users/pmz/Downloads/bleh2.sdfg')
             sdfg.compile()
 
     # return sdfg

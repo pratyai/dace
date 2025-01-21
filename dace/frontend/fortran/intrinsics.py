@@ -10,7 +10,7 @@ from numpy import array_repr
 from dace.frontend.fortran import ast_internal_classes
 from dace.frontend.fortran.ast_transforms import NodeVisitor, NodeTransformer, ParentScopeAssigner, \
     ScopeVarsDeclarations, TypeInference, par_Decl_Range_Finder, NeedsTypeInferenceException
-from dace.frontend.fortran.ast_utils import fortrantypes2dacetypes, mywalk
+from dace.frontend.fortran.ast_utils import fortrantypes2dacetypes, mywalk, TempName
 from dace.libraries.blas.nodes.dot import dot_libnode
 from dace.libraries.blas.nodes.gemm import gemm_libnode
 from dace.libraries.standard.nodes import Transpose
@@ -458,6 +458,10 @@ class LoopBasedReplacementTransformation(IntrinsicNodeTransformer):
         self.count = 0
         self.rvals = []
 
+        # For a nesting of execution parts (rare, but in case it happens), after visiting each direct child of it,
+        # `self.execution_preludes[-1]` will contain all the temporary variable assignments necessary for that node.
+        self.execution_preludes: List[List[ast_internal_classes.BinOp_Node]] = []
+
     @abstractmethod
     def _initialize(self):
         pass
@@ -664,79 +668,67 @@ class LoopBasedReplacementTransformation(IntrinsicNodeTransformer):
             #    )
             #    array.indices[i] = new_index
 
+    def visit_BinOp_Node(self, node: ast_internal_classes.BinOp_Node):
+        lval, rval = node.lval, node.rval
+        if not (node.op == '='
+                and isinstance(lval, ast_internal_classes.Name_Node)
+                and isinstance(rval, ast_internal_classes.Call_Expr_Node)
+                and rval.name.name == self.func_name()):
+            return node
+
+        # WTF is this code?
+        self.loop_ranges, preludes = [], []
+        self._initialize()
+        self._parse_call_expr_node(rval)
+        self._summarize_args(node.parent.execution_part, node, preludes)
+        self._update_result_type(lval)
+        init_stm = self._initialize_result(node)
+        if init_stm is not None:
+            preludes.append(init_stm)
+        self.execution_preludes[-1].extend(
+            p for p in preludes if not isinstance(p, ast_internal_classes.Decl_Stmt_Node))
+
+        # Generate the intrinsic-specific logic inside loop body
+        body = self._generate_loop_body(node)
+        for initrange, finalrange in self.loop_ranges:
+            tmpname = TempName().get_name('lbrt')
+
+            decl = ast_internal_classes.Symbol_Decl_Node(
+                name=tmpname, type=node.type, sizes=None, init=None,
+                line_number=node.line_number, parent=node.parent)
+            node.parent.specification_part.specifications.append(
+                ast_internal_classes.Decl_Stmt_Node(vardecl=[decl]))
+
+            init = ast_internal_classes.BinOp_Node(
+                lval=ast_internal_classes.Name_Node(name=tmpname), op="=", rval=initrange,
+                line_number=node.line_number, parent=node.parent)
+            cond = ast_internal_classes.BinOp_Node(
+                lval=ast_internal_classes.Name_Node(name=tmpname), op="<=", rval=finalrange,
+                line_number=node.line_number, parent=node.parent)
+            iterop = ast_internal_classes.BinOp_Node(
+                lval=ast_internal_classes.Name_Node(name=tmpname), op="=",
+                rval=ast_internal_classes.BinOp_Node(
+                    lval=ast_internal_classes.Name_Node(name=tmpname),
+                    op="+",
+                    rval=ast_internal_classes.Int_Literal_Node(value="1")),
+                line_number=node.line_number, parent=node.parent)
+            body = ast_internal_classes.Map_Stmt_Node(
+                init=init, cond=cond, iter=iterop, body=ast_internal_classes.Execution_Part_Node(execution=[body]),
+                line_number=node.line_number, parent=node.parent)
+
+        return body
+
     def visit_Execution_Part_Node(self, node: ast_internal_classes.Execution_Part_Node):
-
         newbody = []
-
-        for child in node.execution:
-            lister = LoopBasedReplacementVisitor(self.func_name())
-            lister.visit(child)
-            res = lister.nodes
-
-            if res is None or len(res) == 0:
-                newbody.append(self.visit(child))
-                continue
-
-            self.loop_ranges = []
-            # We need to reinitialize variables as the class is reused for transformation between different
-            # calls to the same intrinsic.
-            self._initialize()
-
-            # Visit all intrinsic arguments and extract arrays
-            for i in mywalk(child.rval):
-                if isinstance(i, ast_internal_classes.Call_Expr_Node) and i.name.name == self.func_name():
-                    self._parse_call_expr_node(i)
-
-            # Verify that all of intrinsic args are correct and prepare them for loop generation
-            self._summarize_args(node, child, newbody)
-
-            # Change the type of result variable
-            self._update_result_type(child.lval)
-
-            # Initialize the result variable
-            init_stm = self._initialize_result(child)
-            if init_stm is not None:
-                newbody.append(init_stm)
-
-            # Generate the intrinsic-specific logic inside loop body
-            body = self._generate_loop_body(child)
-
-            # Now generate the multi-dimensiona loop header and updates
-            range_index = 0
-            for i in self.loop_ranges:
-                initrange = i[0]
-                finalrange = i[1]
-                init = ast_internal_classes.BinOp_Node(
-                    lval=ast_internal_classes.Name_Node(name="tmp_parfor_" + str(self.count + range_index)),
-                    op="=",
-                    rval=initrange,
-                    line_number=child.line_number)
-                cond = ast_internal_classes.BinOp_Node(
-                    lval=ast_internal_classes.Name_Node(name="tmp_parfor_" + str(self.count + range_index)),
-                    op="<=",
-                    rval=finalrange,
-                    line_number=child.line_number)
-                iter = ast_internal_classes.BinOp_Node(
-                    lval=ast_internal_classes.Name_Node(name="tmp_parfor_" + str(self.count + range_index)),
-                    op="=",
-                    rval=ast_internal_classes.BinOp_Node(
-                        lval=ast_internal_classes.Name_Node(name="tmp_parfor_" + str(self.count + range_index)),
-                        op="+",
-                        rval=ast_internal_classes.Int_Literal_Node(value="1")),
-                    line_number=child.line_number)
-                current_for = ast_internal_classes.Map_Stmt_Node(
-                    init=init,
-                    cond=cond,
-                    iter=iter,
-                    body=ast_internal_classes.Execution_Part_Node(execution=[body]),
-                    line_number=child.line_number)
-                body = current_for
-                range_index += 1
-
-            newbody.append(body)
-
-            self.count = self.count + range_index
-        return ast_internal_classes.Execution_Part_Node(execution=newbody)
+        self.execution_preludes.append([])
+        for ex in node.execution:
+            ex = self.visit(ex)
+            newbody.extend(self.execution_preludes[-1])
+            newbody.append(ex)
+            self.execution_preludes[-1].clear()
+        self.execution_preludes.pop()
+        return ast_internal_classes.Execution_Part_Node(
+            execution=newbody, line_number=node.line_number, parent=node.parent)
 
 
 class SumProduct(LoopBasedReplacementTransformation):

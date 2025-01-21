@@ -19,7 +19,9 @@ subroutine main(d, res)
 end subroutine main
 """).check_with_gfortran().get()
     sdfg = create_singular_sdfg_from_string(sources, 'main')
+    sdfg.save('/Users/pmz/Downloads/bleh.sdfg')
     sdfg.simplify(verbose=True)
+    sdfg.save('/Users/pmz/Downloads/bleh2.sdfg')
     sdfg.compile()
     
     d = np.full([2], 42, order="F", dtype=np.float32)

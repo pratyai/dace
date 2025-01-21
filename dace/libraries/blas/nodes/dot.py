@@ -543,8 +543,10 @@ class Dot(dace.sdfg.nodes.LibraryNode):
                 desc_res = sdfg.arrays[e.data.data]
 
         if desc_x.dtype != desc_y.dtype:
+            breakpoint()
             raise TypeError(f"Data types of input operands must be equal: {desc_x.dtype}, {desc_y.dtype}")
         if desc_x.dtype.base_type != desc_res.dtype.base_type:
+            breakpoint()
             raise TypeError(f"Data types of input and output must be equal: {desc_x.dtype}, {desc_res.dtype}")
 
         # Squeeze input memlets
