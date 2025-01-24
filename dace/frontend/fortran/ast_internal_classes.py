@@ -362,6 +362,10 @@ class Error_Stmt_Node(FNode):
 
 
 class Execution_Part_Node(FNode):
+    def __init__(self, execution: List[FNode], **kwargs):
+        super().__init__(**kwargs)
+        self.execution = execution
+
     _fields = ('execution',)
 
 
