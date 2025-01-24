@@ -932,13 +932,7 @@ class InternalFortranAst:
         specification_part = get_child(children, ast_internal_classes.Specification_Part_Node)
 
         function_definitions = [i for i in children if isinstance(i, ast_internal_classes.Function_Subprogram_Node)]
-
         subroutine_definitions = [i for i in children if isinstance(i, ast_internal_classes.Subroutine_Subprogram_Node)]
-
-        interface_blocks = {}
-        if specification_part is not None:
-            for iblock in specification_part.interface_blocks:
-                interface_blocks[iblock.name] = [x.name for x in iblock.subroutines]
 
         # add here to definitions
         if module_subprogram_part is not None:
@@ -952,7 +946,6 @@ class InternalFortranAst:
             specification_part=specification_part,
             function_definitions=function_definitions,
             subroutine_definitions=subroutine_definitions,
-            interface_blocks=interface_blocks,
             line_number=name.line_number,
         )
 
@@ -1922,7 +1915,6 @@ class InternalFortranAst:
         others = [self.create_ast(i) for i in node.children if not isinstance(i, f08.Type_Declaration_Stmt)]
 
         decls = [self.create_ast(i) for i in node.children if isinstance(i, f08.Type_Declaration_Stmt)]
-        enums = [self.create_ast(i) for i in node.children if isinstance(i, f03.Enum_Def)]
         # decls = list(filter(lambda x: x is not None, decls))
         uses = [self.create_ast(i) for i in node.children if isinstance(i, f03.Use_Stmt)]
         tmp = [self.create_ast(i) for i in node.children]
@@ -1931,14 +1923,11 @@ class InternalFortranAst:
                               or isinstance(i, ast_internal_classes.Derived_Type_Def_Node)
         ]
         symbols = []
-        iblocks = []
         for i in others:
             if isinstance(i, list):
                 symbols.extend(j for j in i if isinstance(j, ast_internal_classes.Symbol_Array_Decl_Node))
             if isinstance(i, ast_internal_classes.Decl_Stmt_Node):
                 symbols.extend(j for j in i.vardecl if isinstance(j, ast_internal_classes.Symbol_Array_Decl_Node))
-            if isinstance(i, ast_internal_classes.Interface_Block_Node):
-                iblocks.append(i)
 
         for i in decls:
             if isinstance(i, list):
@@ -1963,10 +1952,8 @@ class InternalFortranAst:
                 decl_filtered.append(ast_internal_classes.Decl_Stmt_Node(vardecl=vardecl_filtered))
         return ast_internal_classes.Specification_Part_Node(specifications=decl_filtered,
                                                             symbols=symbols,
-                                                            interface_blocks=iblocks,
                                                             uses=uses,
-                                                            typedecls=typedecls,
-                                                            enums=enums)
+                                                            typedecls=typedecls)
 
     def intrinsic_type_spec(self, node: FASTNode):
         return node

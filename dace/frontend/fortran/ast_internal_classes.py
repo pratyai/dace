@@ -120,6 +120,16 @@ class Exit_Node(FNode):
 
 
 class Main_Program_Node(FNode):
+    def __init__(self,
+                 name: 'Name_Node',
+                 specification_part: 'Specification_Part_Node',
+                 execution_part: 'Execution_Part_Node',
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.name = name
+        self.specification_part = specification_part
+        self.execution_part = execution_part
+
     _attributes = ("name",)
     _fields = ("execution_part", "specification_part")
 
@@ -130,21 +140,18 @@ class Module_Node(FNode):
                  specification_part: 'Specification_Part_Node',
                  subroutine_definitions: List['Subroutine_Subprogram_Node'],
                  function_definitions: List['Function_Subprogram_Node'],
-                 interface_blocks: Dict,
                  **kwargs):
         super().__init__(**kwargs)
         self.name = name
         self.specification_part = specification_part
         self.subroutine_definitions = subroutine_definitions
         self.function_definitions = function_definitions
-        self.interface_blocks = interface_blocks
 
     _attributes = ('name',)
     _fields = (
         'specification_part',
         'subroutine_definitions',
         'function_definitions',
-        'interface_blocks'
     )
 
 
@@ -350,7 +357,13 @@ class Generic_Binding_Node(FNode):
 
 
 class Specification_Part_Node(FNode):
-    _fields = ('specifications', 'symbols', 'interface_blocks', 'typedecls', 'enums',)
+    def __init__(self, specifications: List[FNode], symbols, typedecls, **kwargs):
+        super().__init__(**kwargs)
+        self.specifications = specifications
+        self.symbols = symbols
+        self.typedecls = typedecls
+
+    _fields = ('specifications', 'symbols', 'typedecls',)
 
 
 class Stop_Stmt_Node(FNode):

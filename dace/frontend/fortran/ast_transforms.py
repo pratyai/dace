@@ -233,7 +233,6 @@ class FindFunctionAndSubroutines(NodeVisitor):
     def __init__(self):
         self.names: List[ast_internal_classes.Name_Node] = []
         self.nodes: Dict[str, ast_internal_classes.FNode] = {}
-        self.iblocks: Dict[str, List[str]] = {}
 
     def visit_Subroutine_Subprogram_Node(self, node: ast_internal_classes.Subroutine_Subprogram_Node):
         ret = node.name
@@ -252,10 +251,6 @@ class FindFunctionAndSubroutines(NodeVisitor):
         self.nodes[ret.name] = node
         if node.internal_subprogram_part:
             self.visit(node.internal_subprogram_part)
-
-    def visit_Module_Node(self, node: ast_internal_classes.Module_Node):
-        self.iblocks.update(node.interface_blocks)
-        self.generic_visit(node)
 
     @staticmethod
     def from_node(node: ast_internal_classes.FNode) -> 'FindFunctionAndSubroutines':
@@ -656,8 +651,7 @@ class CallToArray(NodeTransformer):
                         raise ValueError(f"Invalid type {type(replacement_names)} for {replacement_names}")
 
         # TODO Deconproc is a special case, we need to handle it differently - this is just s quick workaround
-        if name.startswith(
-                "__dace_") or name in self.excepted_funcs or found_in_renames or found_in_names or name in self.funcs.iblocks:
+        if name.startswith("__dace_") or name in self.excepted_funcs or found_in_renames or found_in_names:
             processed_args = []
             for i in node.args:
                 arg = CallToArray(self.funcs, self.rename_dict).visit(i)
@@ -898,13 +892,7 @@ class FunctionToSubroutineDefiner(NodeTransformer):
                 node.specification_part.specifications.append(stmt_node)
             else:
                 node.specification_part = ast_internal_classes.Specification_Part_Node(
-                    specifications=[stmt_node],
-                    symbols=None,
-                    interface_blocks=None,
-                    uses=None,
-                    typedecls=None,
-                    enums=None
-                )
+                    specifications=[stmt_node],  symbols=None, uses=None, typedecls=None)
 
         # We should always be able to tell a functions return _variable_ (i.e., not type, which we also should be able
         # to tell).
@@ -2524,12 +2512,7 @@ class PointerRemoval(NodeTransformer):
             new_symbols = None
 
         return ast_internal_classes.Specification_Part_Node(
-            specifications=newspec,
-            symbols=new_symbols,
-            typedecls=node.typedecls,
-            uses=node.uses,
-            enums=node.enums
-        )
+            specifications=newspec, symbols=new_symbols, typedecls=node.typedecls, uses=node.uses)
 
 
 class ArgumentPruner(NodeVisitor):
