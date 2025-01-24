@@ -2645,10 +2645,9 @@ def create_ast_from_string(
 
     program.structures = ast_transforms.Structures(structs_lister.structs)
 
-    functions_and_subroutines_builder = ast_transforms.FindFunctionAndSubroutines()
-    functions_and_subroutines_builder.visit(program)
-
     if transform:
+        functions_and_subroutines_builder = ast_transforms.FindFunctionAndSubroutines.from_node(program)
+
         program = ast_transforms.CallToArray(functions_and_subroutines_builder).visit(program)
         program = ast_transforms.CallExtractor(program).visit(program)
         program = ast_transforms.SignToIf().visit(program)
@@ -2806,9 +2805,6 @@ def run_fparser_transformations(ast: Program, cfg: ParseConfig):
 
 
 def run_ast_transformations(own_ast: ast_components.InternalFortranAst, program: FNode, cfg: SDFGConfig, normalize_offsets: bool = True):
-
-    functions_and_subroutines_builder = ast_transforms.FindFunctionAndSubroutines()
-    functions_and_subroutines_builder.visit(program)
 
     #program = ast_transforms.StructConstructorToFunctionCall(
     #    ast_transforms.FindFunctionAndSubroutines.from_node(program).names).visit(program)
@@ -3413,8 +3409,7 @@ def create_sdfg_from_fortran_file_with_options(
     program.placeholders_offsets = partial_ast.placeholders_offsets
     program.functions_and_subroutines = partial_ast.functions_and_subroutines
     unordered_modules = program.modules
-    functions_and_subroutines_builder = ast_transforms.FindFunctionAndSubroutines()
-    functions_and_subroutines_builder.visit(program)
+    functions_and_subroutines_builder = ast_transforms.FindFunctionAndSubroutines.from_node(program)
     # arg_pruner = ast_transforms.ArgumentPruner(functions_and_subroutines_builder.nodes)
     # arg_pruner.visit(program)
 
