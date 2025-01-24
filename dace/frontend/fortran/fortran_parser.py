@@ -39,6 +39,7 @@ from dace.frontend.fortran.ast_desugaring import ENTRY_POINT_OBJECT_CLASSES, NAM
     create_global_initializers, convert_data_statements_into_assignments, deconstruct_statement_functions, \
     assign_globally_unique_variable_names, deconstuct_goto_statements
 from dace.frontend.fortran.ast_internal_classes import FNode, Main_Program_Node
+from dace.frontend.fortran.ast_transforms import FindFunctionAndSubroutines
 from dace.frontend.fortran.ast_utils import children_of_type, mywalk, atmost_one
 from dace.frontend.fortran.intrinsics import IntrinsicSDFGTransformation, NeedsTypeInferenceException
 from dace.properties import CodeBlock
@@ -306,6 +307,7 @@ class AST_translator:
         self.temporary_ins={}
         self.temporary_outs={}
         self.do_not_make_internal_variables_argument = do_not_make_internal_variables_argument
+        self.functions_and_subroutines: Optional[FindFunctionAndSubroutines] = None
         self.ast_elements = {
             ast_internal_classes.If_Stmt_Node: self.ifstmt2sdfg,
             ast_internal_classes.For_Stmt_Node: self.forstmt2sdfg,
@@ -2102,16 +2104,11 @@ class AST_translator:
         hasret = False
 
         # We assume globally unique function names here.
-        # TODO: Convert `self.functions_and_subroutines` into a dictionary to not have to look up a million times.
-        if call.name.name in {fn.name for fn in self.functions_and_subroutines}:
-            fndef = atmost_one(
-                fn for fn in mywalk(self.top_level, (ast_internal_classes.Subroutine_Subprogram_Node,
-                                                     ast_internal_classes.Function_Subprogram_Node))
-                if fn.name.name == call.name.name)
-            if fndef:
-                # Functions should not exist anymore at this point, really.
-                assert isinstance(fndef, ast_internal_classes.Subroutine_Subprogram_Node)
-                return self.subroutine2sdfg(fndef, sdfg, cfg)
+        fndef = self.functions_and_subroutines.nodes.get(call.name.name)
+        if fndef:
+            # Functions should not exist anymore at this point, really.
+            assert isinstance(fndef, ast_internal_classes.Subroutine_Subprogram_Node)
+            return self.subroutine2sdfg(fndef, sdfg, cfg)
 
         # This part handles the case that it's an external library call.
         libstate = self.libraries.get(call.name.name)
@@ -2965,7 +2962,7 @@ def create_sdfg_from_internal_ast(own_ast: ast_components.InternalFortranAst, pr
         ast2sdfg = AST_translator(__file__, multiple_sdfgs=cfg.multiple_sdfgs, startpoint=fn, toplevel_subroutine=None,
                                   normalize_offsets=cfg.normalize_offsets, do_not_make_internal_variables_argument=True)
         g = SDFG(ep)
-        ast2sdfg.functions_and_subroutines = ast_transforms.FindFunctionAndSubroutines.from_node(program).names
+        ast2sdfg.functions_and_subroutines = ast_transforms.FindFunctionAndSubroutines.from_node(program)
         ast2sdfg.structures = program.structures
         ast2sdfg.placeholders = program.placeholders
         ast2sdfg.placeholders_offsets = program.placeholders_offsets
@@ -3428,7 +3425,7 @@ def create_sdfg_from_fortran_file_with_options(
         ast2sdfg = AST_translator(__file__, multiple_sdfgs=False, startpoint=startpoint, sdfg_path=sdfgs_dir,
                                   normalize_offsets=normalize_offsets)
         sdfg = SDFG(j.name.name)
-        ast2sdfg.functions_and_subroutines = functions_and_subroutines_builder.names
+        ast2sdfg.functions_and_subroutines = functions_and_subroutines_builder
         ast2sdfg.structures = program.structures
         ast2sdfg.placeholders = program.placeholders
         ast2sdfg.placeholders_offsets = program.placeholders_offsets
@@ -3502,7 +3499,7 @@ def create_sdfg_from_fortran_file_with_options(
                 normalize_offsets=normalize_offsets
             )
             sdfg = SDFG(j.name.name)
-            ast2sdfg.functions_and_subroutines = functions_and_subroutines_builder.names
+            ast2sdfg.functions_and_subroutines = functions_and_subroutines_builder
             ast2sdfg.structures = program.structures
             ast2sdfg.placeholders = program.placeholders
             ast2sdfg.placeholders_offsets = program.placeholders_offsets
