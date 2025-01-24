@@ -232,11 +232,8 @@ class FindFunctionAndSubroutines(NodeVisitor):
 
     def __init__(self):
         self.names: List[ast_internal_classes.Name_Node] = []
-        self.module_based_names: Dict[str, List[ast_internal_classes.Name_Node]] = {}
         self.nodes: Dict[str, ast_internal_classes.FNode] = {}
         self.iblocks: Dict[str, List[str]] = {}
-        self.current_module = "_dace_default"
-        self.module_based_names[self.current_module] = []
 
     def visit_Subroutine_Subprogram_Node(self, node: ast_internal_classes.Subroutine_Subprogram_Node):
         ret = node.name
@@ -244,7 +241,6 @@ class FindFunctionAndSubroutines(NodeVisitor):
         self.names.append(ret)
         assert ret.name not in self.nodes
         self.nodes[ret.name] = node
-        self.module_based_names[self.current_module].append(ret)
         if node.internal_subprogram_part:
             self.visit(node.internal_subprogram_part)
 
@@ -254,14 +250,11 @@ class FindFunctionAndSubroutines(NodeVisitor):
         self.names.append(ret)
         assert ret.name not in self.nodes
         self.nodes[ret.name] = node
-        self.module_based_names[self.current_module].append(ret)
         if node.internal_subprogram_part:
             self.visit(node.internal_subprogram_part)
 
     def visit_Module_Node(self, node: ast_internal_classes.Module_Node):
         self.iblocks.update(node.interface_blocks)
-        self.current_module = node.name.name
-        self.module_based_names[self.current_module] = []
         self.generic_visit(node)
 
     @staticmethod
