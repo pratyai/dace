@@ -1,15 +1,18 @@
 # Copyright 2019-2024 ETH Zurich and the DaCe authors. All rights reserved.
 
 import copy
+import functools
 import os
 import sys
 import warnings
 from copy import deepcopy as dpcp
 from dataclasses import dataclass
+from multiprocessing import Pool
 from pathlib import Path
 from typing import List, Optional, Set, Dict, Tuple, Union, Iterable
 
 import networkx as nx
+import tqdm
 from fparser.api import get_reader
 from fparser.common.readfortran import FortranStringReader
 from fparser.common.readfortran import FortranStringReader as fsr
@@ -17,7 +20,7 @@ from fparser.two.C99Preprocessor import CPP_CLASS_NAMES
 from fparser.two.Fortran2003 import Program, Module_Stmt, Include_Stmt
 from fparser.two.parser import ParserFactory as pf, ParserFactory
 from fparser.two.symbol_table import SymbolTable
-from fparser.two.utils import Base, walk, FortranSyntaxError
+from fparser.two.utils import Base, walk, FortranSyntaxError, BlockBase
 
 import dace.frontend.fortran.ast_components as ast_components
 import dace.frontend.fortran.ast_internal_classes as ast_internal_classes
@@ -2756,6 +2759,8 @@ def run_fparser_transformations(ast: Program, cfg: ParseConfig):
     ast = deconstruct_enums(ast)
     ast = deconstruct_associations(ast)
     ast = remove_access_and_bind_statements(ast)
+    with open('/Users/pmz/Downloads/after_pruning.f90', 'w') as f:
+        f.write(ast.tofortran())
     ast = correct_for_function_calls(ast)
     ast = deconstruct_statement_functions(ast)
     ast = deconstruct_procedure_calls(ast)
@@ -2799,6 +2804,9 @@ def run_fparser_transformations(ast: Program, cfg: ParseConfig):
     # TODO: Disabled because some other transforms rely on the naming scheme of variables.
     ast = assign_globally_unique_variable_names(ast, set(cfg.entry_points))
     ast = consolidate_uses(ast)
+
+    with open('/Users/pmz/Downloads/after_pruning.f90', 'w') as f:
+        f.write(ast.tofortran())
 
     return ast
 
@@ -3113,11 +3121,20 @@ def construct_full_ast(sources: Dict[str, str], parser,
 
     tops = {}
 
+    # with Pool(1) as pool:
+    #     all_ctops = pool.imap_unordered(
+    #         functools.partial(_get_toplevel_objects, parser=parser, sources=sources), sources.items())
+    #     for ctops in all_ctops:
+    #         if ctops.keys() & tops.keys():
+    #             print(f"Found duplicate names for top-level objects: {ctops.keys() & tops.keys()}", file=sys.stderr)
+    #         tops.update(ctops)
+
     for path, f90 in tqdm.tqdm(sources.items()):
         ctops = _get_toplevel_objects((path, f90), parser=parser, sources=sources)
         if ctops.keys() & tops.keys():
             print(f"Found duplicate names for top-level objects: {ctops.keys() & tops.keys()}", file=sys.stderr)
         tops.update(ctops)
+    assert tops
 
     # TODO: Remove after fixing the tests to not need `cfg.main` anymore.
     if main:
@@ -3130,8 +3147,10 @@ def construct_full_ast(sources: Dict[str, str], parser,
     ast.content = []
     for k, v in tops.items():
         append_children(ast, v)
+    assert ast.children
 
     ast = keep_sorted_used_modules(ast, entry_points)
+    assert ast.children
     return ast
 
 

@@ -50,3 +50,25 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+"""
+python -u -m dace.frontend.fortran.create_preprocessed_ast \
+-i /Users/pmz/gitspace/icon-dace/support \
+-i /Users/pmz/gitspace/icon-dace/externals/cdi/src \
+-i /Users/pmz/gitspace/icon-dace/externals/comin/src \
+-i /Users/pmz/gitspace/icon-dace/externals/fortran-support/src \
+-i /Users/pmz/gitspace/icon-dace/externals/mtime/src \
+-i /Users/pmz/gitspace/icon-dace/src \
+-i /usr/local/include/netcdf.inc \
+-o ~/Downloads/after_pruning.f90 \
+-k mo_velocity_advection.velocity_tendencies \
+2>&1 | tee ~/Downloads/prep.log
+
+
+python -u -m dace.frontend.fortran.create_preprocessed_ast \
+-i ~/Downloads/before_pruning.f90 \
+-o ~/Downloads/after_pruning.f90 \
+-k mo_velocity_advection.velocity_tendencies \
+2>&1 | tee ~/Downloads/prep.log
+
+"""

@@ -268,6 +268,9 @@ def identifier_specs(ast: Program) -> SPEC_TABLE:
         if isinstance(stmt, Stmt_Function_Stmt):
             # An exception is statement-functions, which must have a dummy variable already declared in the same scope.
             continue
+        if spec in ident_map:
+            print(f"Found another definition of {spec}; skipping...", file=sys.stderr)
+            continue
         assert spec not in ident_map, f"{spec}"
         ident_map[spec] = stmt
     return ident_map
@@ -282,6 +285,8 @@ def alias_specs(ast: Program):
 
     for stmt in walk(ast, Use_Stmt):
         mod_name = singular(children_of_type(stmt, Name)).string
+        if mod_name.lower() in {'iso_c_binding', 'iso_fortran_env', 'mpi'}:
+            continue
         mod_spec = (mod_name,)
 
         scope_spec = find_scope_spec(stmt)
@@ -1112,8 +1117,10 @@ def keep_sorted_used_modules(ast: Program, entry_points: Optional[Iterable[SPEC]
     else:
         entry_modules: Set[str] = {ep[0] if len(ep) > 1 else TOPLEVEL for ep in entry_points} | {TOPLEVEL}
 
+    print(f"Entry modules: {sorted(entry_modules)}")
     assert all(g.has_node(em) for em in entry_modules)
     used_modules: Set[str] = {anc for em in entry_modules for anc in nx.ancestors(g, em)} | entry_modules
+    print(f"Discarding: {sorted(set(g.nodes) - used_modules)}")
     h = g.subgraph(used_modules).to_directed()
 
     top_ord = {n: i for i, n in enumerate(nx.lexicographical_topological_sort(h))}

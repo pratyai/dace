@@ -132,13 +132,6 @@ class NodeTransformer(NodeVisitor):
     visitor methods to replace old nodes. 
     """
 
-    def as_list(self, x):
-        if isinstance(x, list):
-            return x
-        if x is None:
-            return []
-        return [x]
-
     def generic_visit(self, node: ast_internal_classes.FNode):
         for field, old_value in iter_fields(node):
             if isinstance(old_value, list):

@@ -467,7 +467,7 @@ contains
     my_arr(1, 1) = 42
   end subroutine deepest
 end module lib
-""").add_file("""
+
 subroutine main(d)
   use lib
   implicit none
@@ -478,7 +478,10 @@ subroutine main(d)
 end subroutine main
 """).check_with_gfortran().get()
     sdfg = create_singular_sdfg_from_string(sources, entry_point='main')
+    sdfg.save('/Users/pmz/Downloads/bleh.sdfg')
     sdfg.simplify(verbose=True)
+    sdfg.save('/Users/pmz/Downloads/bleh2.sdfg')
+    sdfg.compile()
     a = np.full([5, 5], 42, order="F", dtype=np.float32)
     sdfg(d=a)
     print(a)
