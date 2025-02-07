@@ -2815,6 +2815,8 @@ def run_ast_transformations(own_ast: ast_components.InternalFortranAst, program:
     #program = ast_transforms.CallToArray(ast_transforms.FindFunctionAndSubroutines.from_node(program)).visit(program)
     program = ast_transforms.IfConditionExtractor().visit(program)
     program = ast_transforms.WhileConditionExtractor().visit(program)
+
+    program = ast_transforms.ArgumentExtractor(program).visit(program)
     program = ast_transforms.CallExtractor(program).visit(program)
 
     program = ast_transforms.FunctionCallTransformer().visit(program)
@@ -2842,7 +2844,10 @@ def run_ast_transformations(own_ast: ast_components.InternalFortranAst, program:
     program = ast_transforms.SignToIf(own_ast).visit(program)
     # run it again since signtoif might introduce patterns that have to be extracted
     # example: ABS call inside an UnOpNode
+
+    program = ast_transforms.ArgumentExtractor(program).visit(program)
     program = ast_transforms.CallExtractor(program).visit(program)
+
     program = ast_transforms.ReplaceStructArgsLibraryNodes(program).visit(program)
 
     program = ast_transforms.ArgumentExtractor(program).visit(program)
