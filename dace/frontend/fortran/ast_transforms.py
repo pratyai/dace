@@ -12,6 +12,8 @@ import sympy as sp
 from dace import symbolic as sym
 from dace.frontend.fortran import ast_internal_classes, ast_utils
 from dace.frontend.fortran.ast_desugaring import ConstTypeInjection
+from dace.frontend.fortran.ast_internal_classes import Decl_Stmt_Node, BinOp_Node, Var_Decl_Node, Name_Node, \
+    Execution_Part_Node, FNode, Actual_Arg_Spec_Node, Literal, Array_Subscript_Node, Data_Ref_Node, Call_Expr_Node
 from dace.frontend.fortran.ast_utils import mywalk, iter_fields, iter_attributes, TempName, singular, atmost_one, \
     match_callsite_args_to_function_args
 
@@ -685,75 +687,91 @@ class CallToArray(NodeTransformer):
                                                          line_number=node.line_number)
 
 
-class ArgumentExtractor(NodeTransformer):
+class ExpressionExtractorTranformer(NodeTransformer):
     """
-    Uses the ArgumentExtractorNodeLister to find all function calls
-    in the AST node and its children that have to be extracted into independent expressions
-    It then creates a new temporary variable for each of them and replaces the call with the variable.
+    A framework to find certain patterns of expression in the AST and extract them into new variable.
     """
 
     def __init__(self, program):
-        self._count = 0
+        # First, we want to make sure that the `parent` links are not broken entirely.
         ParentScopeAssigner().visit(program)
         # For a nesting of execution parts (rare, but in case it happens), after visiting each direct child of it,
-        # `self.execution_preludes[-1]` will contain all the temporary variable assignments necessary for that node.
-        self.execution_preludes: List[List[ast_internal_classes.BinOp_Node]] = []
+        # `self.extraction_preludes[-1]` will contain all the temporary variable declarations and assignments necessary
+        # for that node.
+        self.extraction_preludes: List[List[(Decl_Stmt_Node, BinOp_Node)]] = []
 
-    def visit_Call_Expr_Node(self, node: ast_internal_classes.Call_Expr_Node):
-        DIRECTLY_REFERNCEABLE = (ast_internal_classes.Name_Node, ast_internal_classes.Literal,
-                                 ast_internal_classes.Array_Subscript_Node, ast_internal_classes.Data_Ref_Node)
+    def _add_extracted_variable(self, vname: str, vexpr: FNode, vtype: str = 'VOID', vshape: Optional[FNode] = None):
+        vdecl = Decl_Stmt_Node(vardecl=[Var_Decl_Node(name=vname, type=vtype, sizes=vshape, init=None)])
+        vasgn = BinOp_Node(lval=Name_Node(name=vname, type=vtype), op="=", rval=vexpr)
+        assert self.extraction_preludes
+        self.extraction_preludes[-1].append((vdecl, vasgn))
+
+    def visit_Execution_Part_Node(self, expart: Execution_Part_Node):
+        """NOTE: Do not override this for this visitor to work."""
+        specpart = expart.parent.specification_part
+        newbody = []
+        # We set up the space for populating the declarations and assignments.
+        self.extraction_preludes.append([])
+        for ex in expart.execution:
+            # For each candidate node `ex`, visit `ex` to produce the extraction items.
+            ex = self.visit(ex)
+            # Then we populate the assignments in the **reversed** order (since we have DF-traversed the subtree). For
+            # specification part the order does not matter that much.
+            for (decl, asgn) in reversed(self.extraction_preludes[-1]):
+                specpart.specifications.append(decl)
+                newbody.append(asgn)
+            # Then we put back the original item.
+            newbody.append(ex)
+            # And finally clear the space for next item.
+            self.extraction_preludes[-1].clear()
+        # We remove the space for this depth from the stack.
+        self.extraction_preludes.pop()
+        new_expart = Execution_Part_Node(execution=newbody)
+        ParentScopeAssigner().visit(specpart)
+        ParentScopeAssigner().visit(new_expart)
+        return new_expart
+
+
+class ArgumentExtractor(ExpressionExtractorTranformer):
+    """
+    Replaces call expressions like:
+        `x = f1(w + x, f2(y, z))`
+    into expressions like:
+        `t0 = w + x; t1 = f2(y, z); x = f1(t0, t1)`
+    Finds call expressions with arguments that are compound expressions themselves, and extracts such arguments. I.e.,
+    it creates new temporary variables to assign such arguments results, and use those temporaries in this call
+    expression instead.
+    """
+
+    def visit_Call_Expr_Node(self, node: Call_Expr_Node):
+        DIRECTLY_REFERNCEABLE = (Name_Node, Literal, Array_Subscript_Node, Data_Ref_Node)
 
         from dace.frontend.fortran.intrinsics import FortranIntrinsics
         if node.name.name in ["malloc", "pow", "cbrt", "__dace_epsilon",
                               *FortranIntrinsics.call_extraction_exemptions()]:
             return self.generic_visit(node)
-        result = ast_internal_classes.Call_Expr_Node(
+        result = Call_Expr_Node(
             name=node.name, args=[], line_number=node.line_number,
             type=node.type, subroutine=node.subroutine, parent=node.parent)
 
         for i, arg in enumerate(node.args):
             # Ensure we allow to extract function calls from arguments
             if (isinstance(arg, DIRECTLY_REFERNCEABLE)
-                    or (isinstance(arg, ast_internal_classes.Actual_Arg_Spec_Node)
-                        and isinstance(arg.arg, DIRECTLY_REFERNCEABLE))):
+                    or (isinstance(arg, Actual_Arg_Spec_Node) and isinstance(arg.arg, DIRECTLY_REFERNCEABLE))):
                 # If it is a node type that's allowed to be directly referenced in a (possibly keyworded) function
                 # argument, then we keep the node as is.
                 result.args.append(arg)
                 continue
 
+            if isinstance(arg, Actual_Arg_Spec_Node):
+                arg = arg
+            self.generic_visit(arg)
+
             # These needs to be extracted, so register a temporary variable.
             tmpname = TempName.get_name('tmp_arg')
-            decl = ast_internal_classes.Decl_Stmt_Node(
-                    vardecl=[ast_internal_classes.Var_Decl_Node(name=tmpname, type='VOID', sizes=None, init=None)])
-            node.parent.specification_part.specifications.append(decl)
-
-            if isinstance(arg, ast_internal_classes.Actual_Arg_Spec_Node):
-                self.generic_visit(arg.arg)
-                result.args.append(ast_internal_classes.Actual_Arg_Spec_Node(
-                    arg_name=arg.arg_name, arg=ast_internal_classes.Name_Node(name=tmpname, type=arg.arg.type)))
-                asgn = ast_internal_classes.BinOp_Node(
-                    op="=", lval=ast_internal_classes.Name_Node(name=tmpname, type=arg.arg.type),
-                    rval=arg.arg, line_number=node.line_number, parent=node.parent)
-            else:
-                self.generic_visit(arg)
-                result.args.append(ast_internal_classes.Name_Node(name=tmpname, type=arg.type))
-                asgn = ast_internal_classes.BinOp_Node(
-                    op="=", lval=ast_internal_classes.Name_Node(name=tmpname, type=arg.type),
-                    rval=arg, line_number=node.line_number, parent=node.parent)
-
-            self.execution_preludes[-1].append(asgn)
+            self._add_extracted_variable(tmpname, arg, arg.type)
+            result.args.append(Name_Node(name=tmpname, type=arg.type))
         return result
-
-    def visit_Execution_Part_Node(self, node: ast_internal_classes.Execution_Part_Node):
-        newbody = []
-        self.execution_preludes.append([])
-        for ex in node.execution:
-            ex = self.visit(ex)
-            newbody.extend(reversed(self.execution_preludes[-1]))
-            newbody.append(ex)
-            self.execution_preludes[-1].clear()
-        self.execution_preludes.pop()
-        return ast_internal_classes.Execution_Part_Node(execution = newbody)
 
 
 class FunctionCallTransformer(NodeTransformer):
