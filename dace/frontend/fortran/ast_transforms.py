@@ -728,8 +728,10 @@ class ExpressionExtractorTranformer(NodeTransformer):
         # We remove the space for this depth from the stack.
         self.extraction_preludes.pop()
         new_expart = Execution_Part_Node(execution=newbody)
-        ParentScopeAssigner().visit(specpart)
-        ParentScopeAssigner().visit(new_expart)
+        if specpart:
+            ParentScopeAssigner().visit(specpart)
+        if new_expart:
+            ParentScopeAssigner().visit(new_expart)
         return new_expart
 
 
