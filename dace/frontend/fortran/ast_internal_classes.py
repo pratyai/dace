@@ -106,11 +106,14 @@ class BinOp_Node(FNode):
 
 
 class UnOp_Node(FNode):
-    _attributes = (
-        'op',
-        'postfix',
-        'type',
-    )
+    def __init__(self, op: str, lval: FNode, postfix: bool = False, type: str = 'VOID', **kwargs):
+        super().__init__(**kwargs)
+        self.op = op
+        self.lval = lval
+        self.postfix = postfix
+        self.type = type
+
+    _attributes = ('op', 'postfix', 'type')
     _fields = ('lval',)
 
 
