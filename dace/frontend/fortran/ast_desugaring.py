@@ -5,7 +5,7 @@ import sys
 from copy import copy
 from dataclasses import dataclass
 from itertools import chain
-from typing import Union, Tuple, Dict, Optional, List, Iterable, Set, Type, Any
+from typing import Union, Tuple, Dict, Optional, List, Iterable, Set, Type, Any, cast
 
 import networkx as nx
 import numpy as np
@@ -48,7 +48,15 @@ NAMED_STMTS_OF_INTEREST_TYPES = Union[
 NAMED_STMTS_OF_INTEREST_CLASSES = (
     Program_Stmt, Module_Stmt, Function_Stmt, Subroutine_Stmt, Derived_Type_Stmt, Component_Decl, Entity_Decl,
     Specific_Binding, Generic_Binding, Interface_Stmt, Stmt_Function_Stmt)
-SPEC = Tuple[str, ...]
+
+
+class SPEC(tuple[str, ...]):
+    def __new__(cls, *args):
+        if len(args) == 1 and isinstance(args[0], str):
+            args = args[0].split('.')
+        super().__new__(cls, args)
+
+
 SPEC_TABLE = Dict[SPEC, NAMED_STMTS_OF_INTEREST_TYPES]
 
 
@@ -56,12 +64,10 @@ class TYPE_SPEC:
     NO_ATTRS = ''
 
     def __init__(self,
-                 spec: Union[str, SPEC],
+                 spec: SPEC,
                  attrs: str = NO_ATTRS,
                  is_arg: bool = False):
-        if isinstance(spec, str):
-            spec = (spec,)
-        self.spec: SPEC = spec
+        self.spec: SPEC = cast(SPEC, spec)
         self.shape: Tuple[str, ...] = self._parse_shape(attrs)
         self.optional: bool = 'OPTIONAL' in attrs
         self.inp: bool = 'INTENT(IN)' in attrs or 'INTENT(INOUT)' in attrs

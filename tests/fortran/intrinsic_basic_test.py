@@ -3,6 +3,8 @@
 import numpy as np
 import pytest
 
+import dace
+from dace import dtypes
 from dace.frontend.fortran import fortran_parser
 from dace.frontend.fortran.fortran_parser import create_singular_sdfg_from_string
 from tests.fortran.fortran_test_helper import SourceCodeBuilder, deduce_f2dace_variables_for_array
@@ -179,6 +181,97 @@ def test_fortran_frontend_bitwise_ops():
     sdfg(inp=inp, res=res)
 
     assert np.allclose(res, [33, 1073741856, 32, 1, 10, 1010, 384, 1073741824, 4, 1, 12])
+
+
+def test_ieor():
+    sources, main = SourceCodeBuilder().add_file("""
+MODULE random_numbers_mix
+  IMPLICIT NONE
+  SAVE
+  INTEGER(KIND = 4), PARAMETER :: jpq = 607
+  TYPE :: randomnumberstream
+    INTEGER(KIND = 4) :: iused
+    INTEGER(KIND = 4) :: inittest
+    INTEGER(KIND = 4), DIMENSION(607) :: ix
+    REAL(KIND = 8) :: zrm
+  END TYPE randomnumberstream
+  CONTAINS
+  SUBROUTINE initialize_random_numbers(kseed, yd_stream_var_101)
+    INTEGER(KIND = 4), INTENT(IN) :: kseed
+    TYPE(randomnumberstream), INTENT(INOUT) :: yd_stream_var_101
+    INTEGER(KIND = 4) :: idum, jj_var_102, jbit
+    REAL(KIND = 8), DIMENSION(999) :: zwarmup
+    idum = ABS(IEOR(kseed, 123459876))
+    IF (idum == 0) idum = 123459876
+    DO jj_var_102 = 1, 64
+      IF (BTEST(idum, 31)) THEN
+        idum = IBSET(ISHFT(IEOR(idum, 87), 1), 0)
+      ELSE
+        idum = IBCLR(ISHFT(idum, 1), 0)
+      END IF
+    END DO
+    yd_stream_var_101 % ix(1 : 606) = 0
+    yd_stream_var_101 % ix(2) = ISHFT(IBITS(idum, 0, 29), 1)
+    yd_stream_var_101 % ix(jpq) = IBITS(idum, 29, BIT_SIZE(idum) + 1 - 30)
+    DO jbit = 1, 29
+      DO jj_var_102 = 3, 606
+        IF (BTEST(idum, 31)) THEN
+          idum = IBSET(ISHFT(IEOR(idum, 87), 1), 0)
+          yd_stream_var_101 % ix(jj_var_102) = IBSET(yd_stream_var_101 % ix(jj_var_102), jbit)
+        ELSE
+          idum = IBCLR(ISHFT(idum, 1), 0)
+        END IF
+      END DO
+    END DO
+    yd_stream_var_101 % ix(502) = IBSET(yd_stream_var_101 % ix(502), 0)
+    yd_stream_var_101 % iused = 607
+    yd_stream_var_101 % zrm = 9.313225746154785D-10
+    yd_stream_var_101 % inittest = 12345678
+    CALL uniform_distribution(zwarmup, yd_stream_var_101)
+  END SUBROUTINE initialize_random_numbers
+  SUBROUTINE uniform_distribution(px, yd_stream_var_103)
+    TYPE(randomnumberstream), INTENT(INOUT) :: yd_stream_var_103
+    REAL(KIND = 8), DIMENSION(:), INTENT(OUT) :: px
+    INTEGER(KIND = 4) :: jj_var_104, jk_var_105, in_var_106, ifilled
+    in_var_106 = SIZE(px)
+    ifilled = 0
+    DO jj_var_104 = yd_stream_var_103 % iused + 1, MIN(607, in_var_106 + yd_stream_var_103 % iused)
+      px(jj_var_104 - yd_stream_var_103 % iused) = yd_stream_var_103 % ix(jj_var_104) * yd_stream_var_103 % zrm
+      ifilled = ifilled + 1
+    END DO
+    yd_stream_var_103 % iused = yd_stream_var_103 % iused + ifilled
+    IF (ifilled == in_var_106) THEN
+      RETURN
+    END IF
+    DO WHILE (ifilled < in_var_106)
+      DO jj_var_104 = 1, 273
+        yd_stream_var_103 % ix(jj_var_104) = IAND(1073741823, yd_stream_var_103 % ix(jj_var_104) + yd_stream_var_103 % ix(jj_var_104 - 273 + 607))
+      END DO
+      DO jk_var_105 = 1, 2
+        DO jj_var_104 = 274 + (jk_var_105 - 1) * 167, MIN(607, 273 + jk_var_105 * 167)
+          yd_stream_var_103 % ix(jj_var_104) = IAND(1073741823, yd_stream_var_103 % ix(jj_var_104) + yd_stream_var_103 % ix(jj_var_104 - 273))
+        END DO
+      END DO
+      yd_stream_var_103 % iused = MIN(607, in_var_106 - ifilled)
+      px(ifilled + 1 : ifilled + yd_stream_var_103 % iused) = yd_stream_var_103 % ix(1 : yd_stream_var_103 % iused) * yd_stream_var_103 % zrm
+      ifilled = ifilled + yd_stream_var_103 % iused
+    END DO
+  END SUBROUTINE uniform_distribution
+END MODULE random_numbers_mix
+
+subroutine main(k)
+  use random_numbers_mix
+  integer, intent(in) :: k
+  type(randomnumberstream) :: o
+  call initialize_random_numbers(k, o)
+end subroutine main
+""").check_with_gfortran().get()
+    g = create_singular_sdfg_from_string(sources, 'main')
+    g.save('/Users/pmz/Downloads/bleh.sdfg')
+    g.simplify(verbose=True)
+    g = g.compile()
+
+    g(k=1)
 
 
 def test_fortran_frontend_bitwise_ops2():

@@ -680,7 +680,7 @@ def main():
     print(f"Will be using the SDFG as the deserializer target: {args.in_sdfg}")
     g = SDFG.from_file(args.in_sdfg)
 
-    cfg = ParseConfig(sources=input_f90s)
+    cfg = ParseConfig(sources=input_f90s, entry_points=[('radiation_interface', 'radiation')])
     ast = create_fparser_ast(cfg)
     ast = run_fparser_transformations(ast, cfg)
     serde_code = generate_serde_code(ast, g)

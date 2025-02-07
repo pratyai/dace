@@ -1,5 +1,5 @@
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Dict
 
 import pytest
@@ -27,7 +27,7 @@ def parse_and_improve(sources: Dict[str, str]):
     return ast
 
 
-@pytest.mark.skip("1. `ALLOCATABLE` breaks the SDFG compilation, 2. We need to get the path to the generated header.")
+# @pytest.mark.skip("1. `ALLOCATABLE` breaks the SDFG compilation, 2. We need to get the path to the generated header.")
 def test_gen_serde():
     """
     Tests that the Fortran frontend can parse the simplest type declaration and make use of it in a computation.
@@ -89,6 +89,9 @@ end subroutine f2
 """).check_with_gfortran().get()
     ast = parse_and_improve(sources)
 
+    td = TemporaryDirectory()
+    s_data = NamedTemporaryFile()
+
     # We want a particular SDFG where the typical prunings do not happen, since we want to test them.
     # TODO: We have to discard the `pointer` type components, because internal AST cannot handle them.
     do_not_prune = ({k for k, v in identifier_specs(ast).items() if isinstance(v, Component_Decl)}
@@ -99,28 +102,28 @@ end subroutine f2
     assert gmap.keys() == {'f2'}
     g = list(gmap.values())[0]
     g.simplify()
+    g.build_folder = td.name
     # TODO: We cannot compile with `allocatable` type components, because the generated C++ code is broken.
-    # g.compile()
+    g.compile()
 
-    with NamedTemporaryFile() as s_data:
-        serde_code = generate_serde_code(ast, g)
+    serde_code = generate_serde_code(ast, g)
 
-        # Modify the AST to use the serializer.
-        # 1. Reconstruct the original AST, since we have run some preprocessing on the existing one.
-        ast = parse_and_improve(sources)
-        # 2. Instrument the module usage, to serialize certain data into the path `s_data`.
-        y = singular(y for p in walk(ast, Main_Program) for y in walk(p, Specification_Part))
-        x = singular(x for p in walk(ast, Main_Program) for x in walk(p, Execution_Part))
-        prepend_children(y, Use_Stmt(f"use serde"))
-        append_children(x, Call_Stmt(f'call write_to("{s_data.name}", trim(serialize(s)))'))
+    # Modify the AST to use the serializer.
+    # 1. Reconstruct the original AST, since we have run some preprocessing on the existing one.
+    ast = parse_and_improve(sources)
+    # 2. Instrument the module usage, to serialize certain data into the path `s_data`.
+    y = singular(y for p in walk(ast, Main_Program) for y in walk(p, Specification_Part))
+    x = singular(x for p in walk(ast, Main_Program) for x in walk(p, Execution_Part))
+    prepend_children(y, Use_Stmt(f"use serde"))
+    append_children(x, Call_Stmt(f'call write_to("{s_data.name}", trim(serialize(s)))'))
 
-        # Now reconstruct the AST again, this time with serde module in place. Then we will run the test and ensure that
-        # the serialization is as expected.
-        ast = parse_and_improve({'serde.f90': serde_code.f90_serializer, 'main.f90': ast.tofortran()})
-        SourceCodeBuilder().add_file(ast.tofortran()).run_with_gfortran()
+    # Now reconstruct the AST again, this time with serde module in place. Then we will run the test and ensure that
+    # the serialization is as expected.
+    ast = parse_and_improve({'serde.f90': serde_code.f90_serializer, 'main.f90': ast.tofortran()})
+    SourceCodeBuilder().add_file(ast.tofortran()).run_with_gfortran()
 
-        got = Path(s_data.name).read_text().strip()
-        want = """
+    got = Path(s_data.name).read_text().strip()
+    want = """
 # name
 # w
 # rank
@@ -205,63 +208,63 @@ end subroutine f2
 0
 0
 """.strip()
-        assert want == got
+    assert want == got
 
-        # Now, verify that it can be deserialized from C++.
-        cpp_code = f"""
+    # Now, verify that it can be deserialized from C++.
+    cpp_code = f"""
 {serde_code.cpp_deserializer}
 
 #include <fstream>
 #include <iostream>
 
 int main() {{
-  std::ifstream data("{s_data.name}");
+    std::ifstream data("{s_data.name}");
 
-  t x;
-  serde::deserialize(&x, data);
-  std::cout << "a: " << x.name->w[0]->a << std::endl;
-  std::cout << "alloc(aaz): " << (x.name->w[0]->aaz ? "yes" : "no") << std::endl;
-  std::cout << "alloc(bbz): " << (x.name->w[0]->bbz ? "yes" : "no") << std::endl;
-  std::cout << "volume(bbz): " \
-            << x.name->w[0]->__f2dace_SA_bbz_d_0_s_4 * x.name->w[0]->__f2dace_SA_bbz_d_1_s_5 << std::endl;
+    t x;
+    serde::deserialize(&x, data);
+    std::cout << "a: " << x.name->w[0]->a << std::endl;
+    std::cout << "alloc(aaz): " << (x.name->w[0]->aaz ? "yes" : "no") << std::endl;
+    std::cout << "alloc(bbz): " << (x.name->w[0]->bbz ? "yes" : "no") << std::endl;
+    std::cout << "volume(bbz): " \
+              << x.name->w[0]->__f2dace_SA_bbz_d_0_s_4 * x.name->w[0]->__f2dace_SA_bbz_d_1_s_5 << std::endl;
 
-  return EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }}
 """
-        output = SourceCodeBuilder().add_file(cpp_code, 'main.cc').run_with_gcc()
-        assert output.strip() == f"""
+    output = SourceCodeBuilder().add_file(cpp_code, 'main.cc').run_with_gcc()
+    assert output.strip() == f"""
 a: 42
 alloc(aaz): no
 alloc(bbz): yes
 volume(bbz): 4
 """.strip()
 
-        # Now, verify that C++ object can generate config injection JSON.
-        cpp_code = f"""
-        {serde_code.cpp_deserializer}
+    # Now, verify that C++ object can generate config injection JSON.
+    cpp_code = f"""
+{serde_code.cpp_deserializer}
 
-        #include <fstream>
-        #include <iostream>
+#include <fstream>
+#include <iostream>
 
-        int main() {{
-          std::ifstream data("{s_data.name}");
+int main() {{
+    std::ifstream data("{s_data.name}");
 
-          t x;
-          serde::deserialize(&x, data);
-          std::cout << serde::config_injection(*(x.name->w[0])) << std::endl;
+    t x;
+    serde::deserialize(&x, data);
+    std::cout << serde::config_injection(*(x.name->w[0])) << std::endl;
 
-          return EXIT_SUCCESS;
-        }}
-        """
+    return EXIT_SUCCESS;
+}}
+"""
 
-        output = SourceCodeBuilder().add_file(cpp_code, 'main.cc').run_with_gcc()
-        print(output)
-        cinjs = [deserialize(l.strip()) for l in output.splitlines() if l.strip()]
+    output = SourceCodeBuilder().add_file(cpp_code, 'main.cc').run_with_gcc()
+    print(output)
+    cinjs = [deserialize(l.strip()) for l in output.splitlines() if l.strip()]
 
-        cfg = ParseConfig(sources=sources, entry_points=[('f1',), ('f2',)], config_injections=cinjs)
-        ast = create_fparser_ast(cfg)
-        ast = run_fparser_transformations(ast, cfg)
-        assert f"""
+    cfg = ParseConfig(sources=sources, entry_points=[('f1',), ('f2',)], config_injections=cinjs)
+    ast = create_fparser_ast(cfg)
+    ast = run_fparser_transformations(ast, cfg)
+    assert f"""
 LOGICAL FUNCTION f1(s)
   USE lib, ONLY: t3
   IMPLICIT NONE
@@ -269,3 +272,6 @@ LOGICAL FUNCTION f1(s)
   f1 = .TRUE.
 END FUNCTION f1
 """.strip() in ast.tofortran()
+
+    td.cleanup()
+    s_data.close()
